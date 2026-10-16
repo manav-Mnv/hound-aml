@@ -10,6 +10,7 @@ runner in offline.py, which follows the same procedural memory (playbooks) store
 from __future__ import annotations
 
 import json
+import os
 import re
 import time
 from functools import lru_cache
@@ -105,7 +106,8 @@ Emit = Callable[[dict], None]
 
 @lru_cache(maxsize=1)
 def client() -> anthropic.Anthropic:
-    return anthropic.Anthropic(max_retries=3)
+    key = os.environ.get("ANTHROPIC_API_KEY", "").strip() or None
+    return anthropic.Anthropic(api_key=key, max_retries=3)
 
 
 def call_claude(system: str, messages: list, *, tools_list: list | None = None, fmt: dict | None = None,
@@ -278,7 +280,12 @@ Draft the SAR narrative."""
 NUM_RE = re.compile(r"\$?\b\d{1,3}(?:,\d{3})+(?:\.\d+)?\b|\$\d+(?:\.\d+)?(?:k|K)?\b|\b\d{4,}(?:\.\d+)?\b")
 
 
+ID_RE = re.compile(r"\b[A-Z]{1,6}(?:-[A-Z0-9]+)*-\d+\b|\b(?:SYN|REG)-[A-Z0-9-]+\b|\+1-\d{3}-555-\d{4}|\d+(?:\.\d+){3}")
+
+
 def _numbers(text: str) -> list[float]:
+    """Dollar amounts and large figures in a sentence (ids, phone numbers and IPs are ignored)."""
+    text = ID_RE.sub(" ", text)
     out = []
     for m in NUM_RE.findall(text):
         raw = m.replace("$", "").replace(",", "")

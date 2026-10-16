@@ -3,6 +3,24 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
+from pathlib import Path
+
+
+def _load_dotenv() -> None:
+    """Minimal .env support (backend/.env or repo-root .env); real env vars win."""
+    here = Path(__file__).resolve()
+    for path in (here.parents[2] / ".env", here.parents[3] / ".env"):
+        if path.is_file():
+            for line in path.read_text().splitlines():
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    key, _, value = line.partition("=")
+                    key, value = key.strip(), value.strip().strip('"').strip("'")
+                    if key and value and not os.environ.get(key, "").strip():
+                        os.environ[key] = value
+
+
+_load_dotenv()
 
 
 def _env(name: str, default: str) -> str:
@@ -41,7 +59,7 @@ class Settings:
     def has_llm(self) -> bool:
         if self.agent_mode == "offline":
             return False
-        return bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"))
+        return bool(os.environ.get("ANTHROPIC_API_KEY", "").strip() or os.environ.get("ANTHROPIC_AUTH_TOKEN", "").strip())
 
 
 settings = Settings()

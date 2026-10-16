@@ -262,9 +262,9 @@ def start_run(tenant: str, case_id: str, agent: str, model: str, mode: str,
     g = db.graph(tenant)
     rid = new_id("RUN")
     g.query("""MATCH (c:Case {id: $c})
-               CREATE (r:AgentRun {id: $id, agent: $agent, model: $model, mode: $mode, started: $now,
+               CREATE (r:AgentRun {id: $id, agent: $agent, model: $model, mode: $mode, started: $started,
                                    status: 'RUNNING'})-[:WORKED_ON]->(c)""",
-            {"c": case_id, "id": rid, "agent": agent, "model": model, "mode": mode, "now": now()})
+            {"c": case_id, "id": rid, "agent": agent, "model": model, "mode": mode, "started": round(time.time(), 3)})
     if handoff_from:
         g.query("""MATCH (a:AgentRun {id: $a}) MATCH (b:AgentRun {id: $b})
                    CREATE (a)-[:HANDOFF {note: $note, at: $now}]->(b)""",
