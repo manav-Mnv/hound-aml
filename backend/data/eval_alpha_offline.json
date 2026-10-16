@@ -1,0 +1,77 @@
+{
+  "tenant": "alpha",
+  "mode": "offline",
+  "seconds": 30.1,
+  "triage_ms": 274,
+  "alerts": 71,
+  "true_alerts": 30,
+  "rules_only": {
+    "alerts_to_review": 71,
+    "precision": 0.423
+  },
+  "hound": {
+    "cases_opened": 49,
+    "investigations_run": 53,
+    "alerts_merged_into_cases": 22,
+    "sar_recommended_cases": 5,
+    "false_sar_cases": [],
+    "alert_precision": 1.0,
+    "alert_recall": 1.0,
+    "false_positive_alerts_closed": 41,
+    "false_positive_alerts_total": 41,
+    "accounts_found_without_alerts": [
+      "AC-308861",
+      "AC-308871",
+      "AC-308877",
+      "AC-308884",
+      "AC-308891"
+    ]
+  },
+  "scenarios": {
+    "STRUCT-01": {
+      "title": "Smurfing ring feeding a consultant's account",
+      "detected": true,
+      "cases": [
+        "CASE-7E2ADFF0"
+      ],
+      "accounts_found": 6,
+      "accounts_total": 6
+    },
+    "MULE-01": {
+      "title": "Student mule ring cashing out scam victims via crypto",
+      "detected": true,
+      "cases": [
+        "CASE-B435F7E5"
+      ],
+      "accounts_found": 8,
+      "accounts_total": 8
+    },
+    "CAROUSEL-01": {
+      "title": "Four same-director shells cycling funds",
+      "detected": true,
+      "cases": [
+        "CASE-B9E15E76"
+      ],
+      "accounts_found": 4,
+      "accounts_total": 4
+    },
+    "SANCT-01": {
+      "title": "Supplier blocked under the 50% rule via layered ownership",
+      "detected": true,
+      "cases": [
+        "CASE-DD211405"
+      ],
+      "accounts_found": 1,
+      "accounts_total": 1
+    },
+    "LAYER-01": {
+      "title": "Seed 'investment' split across new accounts and parked offshore",
+      "detected": true,
+      "cases": [
+        "CASE-1AA6B15D"
+      ],
+      "accounts_found": 4,
+      "accounts_total": 4
+    }
+  }
+}

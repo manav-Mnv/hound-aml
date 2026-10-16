@@ -132,11 +132,13 @@ def execute(ctx: ToolContext, name: str, args: dict) -> dict:
         return result
     cypher = "\n\n".join(q for q, _ in result.queries)
     params = [p for _, p in result.queries]
+    graph_payload = result.viz.to_dict()
     evidence_id = memory.record_evidence(ctx.tenant, ctx.case_id, ctx.run_id, name, cypher, params,
-                                         result.summary, result.entities, _count(result.data), result.ms)
+                                         result.summary, result.entities, _count(result.data), result.ms,
+                                         data=_truncate(result.data, 40), graph_json=json.dumps(graph_payload, default=str))
     ctx.emit({"type": "evidence", "tool": name, "evidence_id": evidence_id, "summary": result.summary,
               "cypher": [q for q, _ in result.queries], "params": params, "ms": round(result.ms, 1),
-              "graph": result.viz.to_dict(), "data": _truncate(result.data, 40)})
+              "graph": graph_payload, "data": _truncate(result.data, 40)})
     return {"evidence_id": evidence_id, "summary": result.summary, "data": _truncate(result.data, 25)}
 
 

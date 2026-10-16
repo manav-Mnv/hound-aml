@@ -1,2 +1,1 @@
-def main() -> None:
-    print("Hello from hound!")
+"""Hound: an AML investigation agent built on FalkorDB."""

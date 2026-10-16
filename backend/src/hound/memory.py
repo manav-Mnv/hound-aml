@@ -208,13 +208,15 @@ def close_case(tenant: str, case_id: str, disposition: str, summary: str, risk_s
 # ----------------------------------------------------------------------------- evidence & findings
 
 def record_evidence(tenant: str, case_id: str | None, run_id: str | None, tool: str, cypher: str,
-                    params: dict, summary: str, entity_ids: list[str], row_count: int, ms: float) -> str:
+                    params: dict, summary: str, entity_ids: list[str], row_count: int, ms: float,
+                    data: Any = None, graph_json: str = "") -> str:
     g = db.graph(tenant)
     eid = new_id("EV")
     g.query("""CREATE (e:Evidence {id: $id, tool: $tool, cypher: $cypher, params: $params, summary: $summary,
-                                   rows: $rows, ms: $ms, created: $now})""",
+                                   rows: $rows, ms: $ms, created: $now, data: $data, graph: $graph})""",
             {"id": eid, "tool": tool, "cypher": cypher.strip(), "params": json.dumps(params, default=str),
-             "summary": summary[:2000], "rows": row_count, "ms": round(ms, 2), "now": now()})
+             "summary": summary[:2000], "rows": row_count, "ms": round(ms, 2), "now": now(),
+             "data": json.dumps(data, default=str)[:30000], "graph": graph_json[:60000]})
     if case_id:
         g.query("MATCH (c:Case {id: $c}) MATCH (e:Evidence {id: $e}) CREATE (c)-[:HAS_EVIDENCE]->(e)",
                 {"c": case_id, "e": eid})
