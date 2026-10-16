@@ -1,0 +1,114 @@
+{
+  "alpha": {
+    "STRUCT-01": {
+      "typology": "STRUCTURING",
+      "title": "Smurfing ring feeding a consultant's account",
+      "accounts": [
+        "AC-308856",
+        "AC-308861",
+        "AC-308871",
+        "AC-308877",
+        "AC-308884",
+        "AC-308891"
+      ],
+      "parties": [
+        "P-14141",
+        "P-14142",
+        "P-14146",
+        "P-14147",
+        "P-14153",
+        "P-14160"
+      ],
+      "description": "Five young customers deposit $9.0k-$9.9k cash at different branches and forward it the same day to Victor Hale, who also deposits just under $10k himself; proceeds are wired to a recently formed Varnholm trading company."
+    },
+    "MULE-01": {
+      "typology": "MONEY_MULE",
+      "title": "Student mule ring cashing out scam victims via crypto",
+      "accounts": [
+        "AC-308899",
+        "AC-308910",
+        "AC-308918",
+        "AC-308925",
+        "AC-308930",
+        "AC-308932",
+        "AC-308941",
+        "AC-308948"
+      ],
+      "parties": [
+        "P-14164",
+        "P-14165",
+        "P-14169",
+        "P-14173",
+        "P-14175",
+        "P-14179",
+        "P-14183",
+        "P-14184"
+      ],
+      "description": "Seven newly onboarded students share two phones, one IP and a flat; elderly customers send them 'investment' payments that are forwarded within hours to Ronan Pike, who wires the pool to a crypto exchange. The recruiter's phone and Pike's number were reported by Beta Credit Union."
+    },
+    "CAROUSEL-01": {
+      "typology": "ROUND_TRIPPING",
+      "title": "Four same-director shells cycling funds",
+      "accounts": [
+        "AC-308953",
+        "AC-308959",
+        "AC-308965",
+        "AC-308967"
+      ],
+      "parties": [
+        "B-20617",
+        "B-20620",
+        "B-20621",
+        "B-20627",
+        "P-14186"
+      ],
+      "description": "Four LLCs formed within a month share a Varnholm registered address and a single director; they pass roughly $50k around a closed loop four times, generating fake turnover."
+    },
+    "SANCT-01": {
+      "typology": "SANCTIONS_EVASION",
+      "title": "Supplier blocked under the 50% rule via layered ownership",
+      "accounts": [
+        "AC-308969"
+      ],
+      "parties": [
+        "B-20632",
+        "B-20639"
+      ],
+      "description": "Bluefin pays Aurora Maritime, which is not listed itself but is 30% owned by designated Grigor Malenko and 25% by Northstar Holdings, wholly owned by designated Selene Group: 55% aggregate blocked ownership. Coral Freight (40%) is below the threshold but warrants enhanced due diligence."
+    },
+    "LAYER-01": {
+      "typology": "LAYERING",
+      "title": "Seed 'investment' split across new accounts and parked offshore",
+      "accounts": [
+        "AC-308970",
+        "AC-308979",
+        "AC-308986",
+        "AC-308993"
+      ],
+      "parties": [
+        "B-20654",
+        "P-14203",
+        "P-14209",
+        "P-14216"
+      ],
+      "description": "A six-week-old consultancy receives two ~$185k wires from a Qastria fund, splits each across three newly opened individual accounts within hours, and they forward ~96% to two Varnholm trust companies the next day."
+    }
+  },
+  "beta": {
+    "MULE-B-EARLY": {
+      "typology": "MONEY_MULE",
+      "title": "Earlier wave of the same mule crew (already exited)",
+      "accounts": [
+        "AC-301897",
+        "AC-301901",
+        "AC-301911"
+      ],
+      "parties": [
+        "P-11345",
+        "P-11346",
+        "P-11349"
+      ],
+      "description": "Closed in September; included so cross-bank links have a source."
+    }
+  }
+}
