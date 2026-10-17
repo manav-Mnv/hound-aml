@@ -253,7 +253,7 @@ Built on the new Rust engine (6.0.1). Two behaviours we hit and worked around (r
 
 ## AI assistance disclosure
 
-Built with Claude Code (Anthropic) as a coding assistant, as allowed by the rules. The idea, AML domain design and verification were done by the team; the generated code was reviewed, run and tested (unit test with a scripted model, end-to-end UI run, offline benchmark). The product itself uses Claude Opus 5.5 at runtime for the investigator and SAR writer.
+An AI coding assistant was used during development, as allowed by rule 11. The idea, AML domain design and verification were done by the team; all code was reviewed, run and tested (unit test with a scripted model, end-to-end UI run, offline benchmark).
 
 ## Limitations
 
