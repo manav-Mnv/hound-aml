@@ -1,7 +1,7 @@
-"""server_help: keep the free Render instance awake by pinging it every few minutes.
+"""server_hell: keep the free Render instance awake by pinging it every few minutes.
 
-Run:  python scripts/server_help.py            (default URL, every 240 s)
-      python scripts/server_help.py URL 180    (custom URL and interval)
+Run:  python scripts/server_hell.py            (default URL, every 240 s)
+      python scripts/server_hell.py URL 180    (custom URL and interval)
 Stop with Ctrl+C. Uses only the standard library.
 """
 import sys
