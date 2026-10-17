@@ -11,7 +11,7 @@ import { Model } from "./views/Model";
 type View = "investigate" | "cases" | "memory" | "consortium" | "benchmark" | "model";
 const VIEWS: { id: View; label: string }[] = [
   { id: "investigate", label: "Investigate" }, { id: "cases", label: "Cases" }, { id: "memory", label: "Memory" },
-  { id: "consortium", label: "Consortium" }, { id: "benchmark", label: "Benchmark" }, { id: "model", label: "Graph model" },
+  { id: "consortium", label: "Consortium" }, { id: "benchmark", label: "Benchmark" }, { id: "model", label: "Model" },
 ];
 
 export default function App() {
@@ -61,7 +61,7 @@ export default function App() {
             FalkorDB {status?.falkordb_version ? `${Math.floor(status.falkordb_version / 10000)}.${Math.floor((status.falkordb_version % 10000) / 100)}.${status.falkordb_version % 100}` : ""} · {status?.graphs.length ?? 0} graphs
           </span>
           <span className={`pill ${status?.llm ? "info" : "neutral"}`}>{status?.llm ? status.model : "Offline playbook mode"}</span>
-          <button className="ghost" onClick={reset} disabled={busy}>{busy ? "Resetting…" : "Reset demo"}</button>
+          <button className="ghost" onClick={reset} disabled={busy}>{busy ? "Resetting…" : "Reset"}</button>
         </div>
       </header>
       {overview && (

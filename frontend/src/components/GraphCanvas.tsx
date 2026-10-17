@@ -120,6 +120,7 @@ export function GraphCanvas({ graph, highlight, onSelect, layoutKey }: Props) {
     if (!c) return;
     const els = toElements(graph);
     const wanted = new Set(els.map((e) => e.data.id as string));
+    let added = 0;
     c.batch(() => {
       c.elements().forEach((el) => { if (!wanted.has(el.id())) el.remove(); });
       for (const el of els) {
@@ -129,12 +130,14 @@ export function GraphCanvas({ graph, highlight, onSelect, layoutKey }: Props) {
           if (el.classes) existing.classes(el.classes as string);
         } else {
           c.add(el);
+          added += 1;
         }
       }
     });
     if (c.nodes().length) {
       c.layout({
-        name: "fcose", animate: c.nodes().length < 160, animationDuration: 450, randomize: false, nodeRepulsion: 9000,
+        name: "fcose", animate: c.nodes().length < 160, animationDuration: 450, randomize: added > c.nodes().length / 2,
+        nodeRepulsion: 9000,
         idealEdgeLength: 90, packComponents: true, fit: true, padding: 30,
       } as any).run();
     }

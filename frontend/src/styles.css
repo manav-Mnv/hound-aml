@@ -212,6 +212,10 @@ h3 { margin: 4px 0 8px; font-size: 15px; }
 .tool-list li { margin-bottom: 5px; }
 .rules { display: grid; grid-template-columns: repeat(auto-fill, minmax(460px, 1fr)); gap: 10px; }
 
+@media (max-width: 1600px) {
+  .brand-sub { display: none; }
+  .brand { min-width: 0; }
+}
 @media (max-width: 1200px) {
   .investigate { grid-template-columns: 280px minmax(0, 1fr) 380px; }
   .brand-sub { display: none; }
