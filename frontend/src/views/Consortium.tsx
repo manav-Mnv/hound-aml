@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import type { Subgraph } from "../types";
 import { GraphCanvas } from "../components/GraphCanvas";
-import { Badge, Empty } from "../components/bits";
+import { Badge, Empty, IdChip } from "../components/bits";
+import { humanize } from "../format";
 
 export function Consortium({ version, graphs }: { version: number; graphs: string[] }) {
   const [data, setData] = useState<any>(null);
@@ -38,7 +39,7 @@ export function Consortium({ version, graphs }: { version: number; graphs: strin
           <tbody>
             {data.signals.map((s: any) => (
               <tr key={s.hash + s.institution}>
-                <td>{s.name}</td><td>{s.kind}</td><td className="mono">{s.hash}…</td><td>{s.typology}</td><td className="mono small">{s.case_ref}</td>
+                <td>{s.name}</td><td>{s.kind}</td><td className="mono nowrap" title={s.hash}>{s.hash.slice(0, 10)}…</td><td>{humanize(s.typology)}</td><td>{s.case_ref && <IdChip id={s.case_ref} />}</td>
               </tr>
             ))}
           </tbody>

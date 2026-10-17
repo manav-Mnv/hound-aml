@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import type { Subgraph } from "../types";
-import { GraphCanvas, Legend } from "../components/GraphCanvas";
-import { Badge, Empty } from "../components/bits";
+import { GraphCanvas, KindIcon } from "../components/GraphCanvas";
+import { Badge, Empty, IdChip } from "../components/bits";
+import { humanize, kindLabel, nodeCaption } from "../format";
 
 export function Memory({ tenant, version }: { tenant: string; version: number }) {
   const [data, setData] = useState<any>(null);
@@ -10,7 +11,6 @@ export function Memory({ tenant, version }: { tenant: string; version: number })
   useEffect(() => { api.memory(tenant).then(setData); }, [tenant, version]);
   if (!data) return <Empty title="Loading memory graph…" />;
   const graph: Subgraph = { nodes: data.nodes, edges: data.edges };
-  const kinds = [...new Set(graph.nodes.map((n) => n.kind))];
   const node = sel && data.nodes.find((n: any) => n.id === sel);
   const playbooks = Object.values(data.playbooks) as any[];
   return (
@@ -24,15 +24,14 @@ export function Memory({ tenant, version }: { tenant: string; version: number })
         </div>
         <div className="canvas-wrap tall">
           {graph.nodes.length ? <GraphCanvas graph={graph} onSelect={(id) => setSel(id)} /> : <Empty title="No memory yet" />}
-          <Legend kinds={kinds} />
         </div>
       </div>
       <aside className="split-side">
         {node && (
-          <div className="card">
-            <div className="eyebrow">{node.kind}</div>
-            <h3>{node.label}</h3>
-            {node.disposition && <Badge tone="info">{node.disposition}</Badge>}
+          <div className="card node-card">
+            <div className="eyebrow node-kind"><KindIcon kind={node.kind} /> {kindLabel(node.kind)}</div>
+            <h3>{nodeCaption(node).title}</h3>
+            <div className="chips"><IdChip id={node.id} />{node.disposition && <Badge tone="info">{humanize(node.disposition)}</Badge>}</div>
             {node.text && <p>{node.text}</p>}
           </div>
         )}

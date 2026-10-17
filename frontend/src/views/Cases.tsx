@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import { Badge, Empty, dispositionLabel, dispositionTone } from "../components/bits";
+import { Badge, Empty, IdChip, dispositionLabel, dispositionTone } from "../components/bits";
 
 export function Cases({ tenant, version, onOpen }: { tenant: string; version: number; onOpen: (caseId: string) => void }) {
   const [rows, setRows] = useState<any[] | null>(null);
@@ -18,7 +18,7 @@ export function Cases({ tenant, version, onOpen }: { tenant: string; version: nu
         <tbody>
           {rows.map((r) => (
             <tr key={r.id} className={r.origin === "hound" ? "clickable" : ""} onClick={() => r.origin === "hound" && onOpen(r.id)}>
-              <td className="mono">{r.id}</td>
+              <td><IdChip id={r.id} /></td>
               <td><Badge tone={dispositionTone(r.disposition)}>{dispositionLabel(r.disposition ?? r.status)}</Badge></td>
               <td>{(r.typologies ?? []).join(", ").replace(/_/g, " ").toLowerCase()}</td>
               <td>{(r.subjects ?? []).join(", ")}</td>

@@ -211,12 +211,22 @@ def neighborhood(tenant: str, entity_id: str, limit: int = 60) -> dict:
     for r in rows:
         for x in (r["n"], r["m"]):
             nid = x.get("id") or x.get("code")
-            nodes[nid] = {"id": nid, "kind": _kind(x["labels"]), "label": _label(x), "country": x.get("country")}
+            nodes[nid] = {"id": nid, "kind": _kind(x["labels"]), "label": _label(x), "country": x.get("country"),
+                          "acct_type": x.get("type") if "Account" in x["labels"] else None, "bank": x.get("bank"),
+                          "rule": x.get("rule"), "rule_name": x.get("rule_name")}
         a, b = r["n"].get("id"), r["m"].get("id") or r["m"].get("code")
         src, dst = (a, b) if r["outgoing"] else (b, a)
         key = f"{src}|{r['rel']}|{dst}|{r['ts']}"
         edges[key] = {"id": key, "source": src, "target": dst, "rel": r["rel"], "amount": r["amount"], "pct": r["pct"]}
-    return {"nodes": list(nodes.values()), "edges": list(edges.values())}
+    # Accounts carry no name of their own: attach the holder so the graph can show who, not just which number.
+    accounts = [nid for nid, n in nodes.items() if n["kind"] in ("Account", "External")]
+    if accounts:
+        held, _ = db.rows(g, """UNWIND $ids AS aid MATCH (p:Party)-[:HOLDS]->(a:Account {id: aid})
+                                RETURN a.id AS id, p.name AS holder""", {"ids": accounts})
+        for h in held:
+            nodes[h["id"]]["holder"] = h["holder"]
+    return {"nodes": [{k: v for k, v in n.items() if v is not None} for n in nodes.values()],
+            "edges": list(edges.values())}
 
 
 @app.get("/api/{tenant}/memory")

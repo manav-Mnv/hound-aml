@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import type { Alert, CaseDetail, Evidence, Subgraph, TraceEvent } from "../types";
-import { GraphCanvas, Legend, mergeGraphs } from "../components/GraphCanvas";
+import { GraphCanvas, mergeGraphs } from "../components/GraphCanvas";
 import { Trace } from "../components/Trace";
 import { SarView } from "../components/SarView";
-import { Badge, Collapse, Cypher, Empty, ScoreRing, dispositionLabel, dispositionTone } from "../components/bits";
+import { Badge, Collapse, Cypher, Empty, IdChip, ScoreRing, dispositionLabel, dispositionTone } from "../components/bits";
+import { RULE_SHORT } from "../format";
 
 const EMPTY: Subgraph = { nodes: [], edges: [] };
 type Tab = "trace" | "findings" | "sar" | "evidence";
@@ -25,6 +26,7 @@ export function Investigate({ tenant, llm, onChanged, focusAlert }: Props) {
   const [mode, setMode] = useState<"auto" | "offline">(llm ? "auto" : "offline");
   const [note, setNote] = useState("");
   const [toast, setToast] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
   const stopRef = useRef<(() => void) | null>(null);
   const liveEvidence = useRef<Record<string, TraceEvent>>({});
 
@@ -38,8 +40,10 @@ export function Investigate({ tenant, llm, onChanged, focusAlert }: Props) {
     return m;
   }, [alerts]);
 
+  const q = query.trim().toLowerCase();
   const shown = alerts.filter((a) =>
-    filter === "all" ? true : filter === "open" ? !a.case_id : !!a.case_id);
+    (filter === "all" ? true : filter === "open" ? !a.case_id : !!a.case_id) &&
+    (!q || [a.holder, a.account, a.id, a.rule, a.rule_name, a.case_id ?? ""].some((x) => x.toLowerCase().includes(q))));
 
   const loadCase = useCallback(async (caseId: string, keepEvents = false) => {
     const d = await api.case(tenant, caseId);
@@ -126,12 +130,16 @@ export function Investigate({ tenant, llm, onChanged, focusAlert }: Props) {
     Object.values(liveEvidence.current).map((e) => ({ id: e.evidence_id!, tool: e.tool!, summary: e.summary!, cypher: (e.cypher ?? []).join("\n\n"), params: "", ms: e.ms ?? 0, rows: 0, graph: e.graph! }));
   const ev = evidenceList.find((e) => e.id === evidenceSel);
   const c = detail?.case;
-  const kinds = [...new Set(graph.nodes.map((n) => n.kind))];
 
   return (
     <div className="investigate">
       <aside className="queue">
         <div className="queue-head">
+          <div className="search">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+            <input placeholder="Search name, AC- or ALR- number…" value={query} onChange={(e) => setQuery(e.target.value)} />
+            {query && <button className="search-clear" onClick={() => setQuery("")} aria-label="Clear search">×</button>}
+          </div>
           <div className="seg">
             {(["open", "cases", "all"] as const).map((f) => (
               <button key={f} className={filter === f ? "on" : ""} onClick={() => setFilter(f)}>
@@ -149,13 +157,16 @@ export function Investigate({ tenant, llm, onChanged, focusAlert }: Props) {
                   <span className="holder">{a.holder}</span>
                   {a.disposition && <Badge tone={dispositionTone(a.disposition)}>{dispositionLabel(a.disposition)}</Badge>}
                 </div>
-                <div className="alert-rule">{a.rule} · {a.rule_name}</div>
+                <div className="alert-ids">
+                  <span className="rule-chip" title={a.rule_name}><b>{a.rule}</b> {RULE_SHORT[a.rule] ?? a.rule_name}</span>
+                  <IdChip id={a.account} title={`Account ${a.account}`} />
+                </div>
                 <div className="alert-desc">{a.description}</div>
                 {a.grp && groupSizes[a.grp] > 1 && <span className="group-chip">{groupSizes[a.grp]} related alerts</span>}
               </div>
             </button>
           ))}
-          {!shown.length && <Empty title="Nothing here">Switch filters or run triage.</Empty>}
+          {!shown.length && <Empty title="Nothing here">{q ? "No alert matches that search." : "Switch filters or run triage."}</Empty>}
         </div>
       </aside>
 
@@ -163,8 +174,12 @@ export function Investigate({ tenant, llm, onChanged, focusAlert }: Props) {
         {selected ? (
           <div className="case-bar">
             <div className="case-id">
-              <div className="eyebrow">{c ? c.id : selected.id}</div>
-              <div className="case-title">{selected.holder} <span className="muted">· {selected.account}</span></div>
+              <div className="case-chips">
+                {c && <IdChip id={c.id} title="Case" />}
+                <IdChip id={selected.id} title={`Alert: ${selected.rule_name}`} />
+                <IdChip id={selected.account} title="Account under review" />
+              </div>
+              <div className="case-title">{selected.holder} <span className="case-rule">{selected.rule_name}</span></div>
             </div>
             <div className="case-meta">
               {c?.disposition && <Badge tone={dispositionTone(c.disposition)}>{dispositionLabel(c.disposition)}</Badge>}
@@ -183,7 +198,7 @@ export function Investigate({ tenant, llm, onChanged, focusAlert }: Props) {
             </div>
           </div>
         ) : (
-          <div className="case-bar"><div className="case-title muted">Pick an alert from the queue. Highest triage scores first.</div></div>
+          <div className="case-bar"><div className="case-hint">Pick an alert from the queue. Highest triage scores first.</div></div>
         )}
         <div className="canvas-wrap">
           {graph.nodes.length ? (
@@ -191,7 +206,6 @@ export function Investigate({ tenant, llm, onChanged, focusAlert }: Props) {
           ) : (
             <Empty title="Graph context appears here">Each tool call adds the subgraph it read, so you can watch the agent follow the money.</Empty>
           )}
-          {kinds.length > 0 && <Legend kinds={kinds} />}
           {highlight.length > 0 && <button className="clear-hl" onClick={() => setHighlight([])}>Show all</button>}
         </div>
         {c && (c.status === "PENDING_APPROVAL" || c.disposition === "FALSE_POSITIVE") && c.origin === "hound" && (
@@ -214,7 +228,10 @@ export function Investigate({ tenant, llm, onChanged, focusAlert }: Props) {
         <div className="tabs">
           {(["trace", "findings", "sar", "evidence"] as Tab[]).map((t) => (
             <button key={t} className={tab === t ? "on" : ""} onClick={() => setTab(t)}>
-              {t === "trace" ? "Agent trace" : t === "findings" ? `Findings ${detail?.findings.length ?? ""}` : t === "sar" ? "SAR" : "Evidence"}
+              {t === "trace" ? "Agent trace" : t === "findings" ? "Findings" : t === "sar" ? "SAR" : "Evidence"}
+              {t === "findings" && !!detail?.findings.length && <span className="tab-n">{detail.findings.length}</span>}
+              {t === "evidence" && evidenceList.length > 0 && <span className="tab-n">{evidenceList.length}</span>}
+              {t === "sar" && detail?.sar && <span className="tab-dot" />}
             </button>
           ))}
         </div>
@@ -248,7 +265,7 @@ export function Investigate({ tenant, llm, onChanged, focusAlert }: Props) {
           {tab === "evidence" && (
             ev ? (
               <div className="evidence-detail">
-                <div className="ev-head"><span className="tool">{ev.tool}</span><span className="ev-id">{ev.id}</span><span className="muted">{ev.ms} ms</span></div>
+                <div className="ev-head"><span className="tool">{ev.tool}</span><IdChip id={ev.id} /><span className="muted">{ev.ms} ms</span></div>
                 <p>{ev.summary}</p>
                 <div className="eyebrow">Cypher executed on FalkorDB</div>
                 <Cypher code={ev.cypher} />
@@ -258,7 +275,7 @@ export function Investigate({ tenant, llm, onChanged, focusAlert }: Props) {
               <div className="ev-list">
                 {evidenceList.map((e) => (
                   <button key={e.id} className="ev-item" onClick={() => selectEvidence(e.id)}>
-                    <span className="tool">{e.tool}</span> <span className="ev-id">{e.id}</span>
+                    <div className="ev-head"><span className="tool">{e.tool}</span><IdChip id={e.id} /></div>
                     <div className="ev-summary">{e.summary}</div>
                   </button>
                 ))}
@@ -275,7 +292,7 @@ export function Investigate({ tenant, llm, onChanged, focusAlert }: Props) {
 function AlertPreview({ a }: { a: Alert }) {
   return (
     <div className="alert-preview">
-      <div className="eyebrow">{a.id}</div>
+      <div className="case-chips"><IdChip id={a.id} /><IdChip id={a.account} /></div>
       <h3>{a.rule_name}</h3>
       <p>{a.description}</p>
       <div className="eyebrow">Why triage scored it {a.score}</div>

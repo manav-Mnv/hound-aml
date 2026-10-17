@@ -1,5 +1,5 @@
 import type { TraceEvent } from "../types";
-import { AgentChip, Badge, Collapse, Cypher, dispositionLabel, dispositionTone } from "./bits";
+import { AgentChip, Badge, Collapse, Cypher, IdChip, dispositionLabel, dispositionTone } from "./bits";
 
 interface Props {
   events: TraceEvent[];
@@ -21,7 +21,7 @@ function TraceItem({ e, selected, onSelectEvidence }: { e: TraceEvent; selected?
     case "case_opened":
       return (
         <div className="ti ti-system">
-          <AgentChip agent="orchestrator" /> Opened <b>{e.case_id}</b>
+          <AgentChip agent="orchestrator" /> Opened <IdChip id={e.case_id!} />
           {e.group && e.group.length > 1 && <> · triage grouped <b>{e.group.length}</b> related alerts</>}
         </div>
       );
@@ -56,7 +56,7 @@ function TraceItem({ e, selected, onSelectEvidence }: { e: TraceEvent; selected?
         <div className={`ti ti-evidence ${selected === e.evidence_id ? "sel" : ""}`} onClick={() => onSelectEvidence(e.evidence_id!)}>
           <div className="ev-head">
             <span className="tool">{e.tool}</span>
-            <span className="ev-id">{e.evidence_id}</span>
+            <IdChip id={e.evidence_id!} />
             <span className="muted">{e.ms} ms</span>
           </div>
           <div className="ev-summary">{e.summary}</div>

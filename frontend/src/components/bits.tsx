@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { AGENT_LABEL } from "../api";
+import { idTone, splitId } from "../format";
 
 const KEYWORDS = /\b(MATCH|OPTIONAL|WHERE|RETURN|WITH|UNWIND|CALL|YIELD|ORDER BY|ORDER|BY|LIMIT|AND|OR|NOT|IN|AS|DISTINCT|CASE|WHEN|THEN|ELSE|END|CREATE|MERGE|SET|UNION|ALL|count|sum|collect|reduce|coalesce|size|head|min|max|abs|toFloat|toInteger|nodes|relationships|startNode|endNode|labels|any|range)\b/g;
 
@@ -55,14 +56,29 @@ export function dispositionLabel(d?: string | null): string {
   } as Record<string, string>)[d ?? ""] ?? (d ?? "Open");
 }
 
-export function ScoreRing({ score }: { score: number | null }) {
-  const s = score ?? 0;
-  const tone = s >= 60 ? "#ef4444" : s >= 35 ? "#f59e0b" : "#22c55e";
+export function ScoreRing({ score, size = 40 }: { score: number | null; size?: number }) {
+  const s = Math.max(0, Math.min(100, score ?? 0));
+  const tone = s >= 60 ? "var(--danger)" : s >= 35 ? "var(--warn)" : "var(--ok)";
+  const r = 15.5, c = 2 * Math.PI * r;
   return (
-    <div className="score-ring" style={{ background: `conic-gradient(${tone} ${s * 3.6}deg, #1f2937 0deg)` }} title={`Triage score ${s}`}>
-      <span>{Math.round(s)}</span>
+    <div className="score-ring" style={{ width: size, height: size }} title={`Triage score ${Math.round(s)} / 100`}>
+      <svg viewBox="0 0 36 36" width={size} height={size}>
+        <circle cx="18" cy="18" r={r} className="track" />
+        <circle cx="18" cy="18" r={r} className="bar" stroke={tone} strokeDasharray={`${(s / 100) * c} ${c}`} transform="rotate(-90 18 18)" />
+      </svg>
+      <span style={{ color: tone }}>{Math.round(s)}</span>
     </div>
   );
+}
+
+/** An identifier (AC-308899, ALR-R4-308899, CASE-2026-0007, EV-...) as a two-tone mono chip. */
+export function IdChip({ id, onClick, title }: { id: string; onClick?: () => void; title?: string }) {
+  const [pre, rest] = splitId(id);
+  const body = <>{pre && <span className="id-pre">{pre}</span>}<span className="id-num">{rest}</span></>;
+  const cls = `id-chip id-${idTone(id)}`;
+  return onClick
+    ? <button className={cls} onClick={(e) => { e.stopPropagation(); onClick(); }} title={title ?? id}>{body}</button>
+    : <span className={cls} title={title ?? id}>{body}</span>;
 }
 
 export function Empty({ title, children }: { title: string; children?: ReactNode }) {
