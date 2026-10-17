@@ -1,0 +1,12 @@
+name: server help (keep Render awake)
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - run: curl -s -m 90 -o /dev/null -w "%{http_code}\n" https://hound-99l2.onrender.com/api/status
