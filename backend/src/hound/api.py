@@ -20,7 +20,20 @@ from . import consortium, db, memory, orchestrator, rules, tools, triage
 from .agents import INVESTIGATOR_TOOLS
 from .config import settings
 
-app = FastAPI(title="Hound", description="AML investigation agents on FalkorDB")
+from contextlib import asynccontextmanager
+
+from .mcp_server import server as mcp_server
+
+_mcp_app = mcp_server.streamable_http_app()
+
+
+@asynccontextmanager
+async def lifespan(_app):
+    async with mcp_server.session_manager.run():
+        yield
+
+
+app = FastAPI(title="Hound", description="AML investigation agents on FalkorDB", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 FRONTEND = Path(__file__).resolve().parents[3] / "frontend" / "dist"
@@ -282,6 +295,8 @@ def reset() -> dict:
 
 
 # ----------------------------------------------------------------------------- frontend
+
+app.mount("/mcp-server", _mcp_app)
 
 if FRONTEND.is_dir():
     app.mount("/assets", StaticFiles(directory=FRONTEND / "assets"), name="assets")
