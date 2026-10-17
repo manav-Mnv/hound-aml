@@ -4,7 +4,7 @@
 
 Graph Hacks 2026 (WeMakeDevs × FalkorDB) · **Tracks: 01 Agents That Act on Connected Data + 02 Agent Memory and Coordination**
 
-`FalkorDB 6.0 (Rust engine)` · `Claude Opus 5.5` · `MCP` · `Python / FastAPI` · `React + Cytoscape` · all data synthetic
+[![CI](https://github.com/manav-Mnv/hound-aml/actions/workflows/ci.yml/badge.svg)](https://github.com/manav-Mnv/hound-aml/actions/workflows/ci.yml) `FalkorDB 6.0 (Rust engine)` · `Claude Opus 5.5` · `MCP` · `Python / FastAPI` · `React + Cytoscape` · all data synthetic
 
 > Live demo: _add your Space / Render URL here_ · Demo video: _add link_ · Blog post: [docs/BLOG.md](docs/BLOG.md)
 
