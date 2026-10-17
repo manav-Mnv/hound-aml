@@ -19,6 +19,7 @@ export const api = {
       body: JSON.stringify({ decision, note, analyst }),
     }),
   neighborhood: (t: string, id: string) => j<Subgraph>(`/api/${t}/entity/${encodeURIComponent(id)}/neighborhood`),
+  landscape: (t: string) => j<Subgraph>(`/api/${t}/landscape`),
   memory: (t: string) => j<any>(`/api/${t}/memory`),
   consortium: () => j<any>("/api/consortium"),
   evals: () => j<Record<string, any>>("/api/eval"),

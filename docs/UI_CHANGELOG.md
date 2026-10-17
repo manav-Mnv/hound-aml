@@ -1,4 +1,40 @@
-# UI change log — 2026-10-17
+# UI change log
+
+## Round 2 — 2026-10-17: make the graph tell the story
+
+| Alert landscape | Money flow | Replay |
+| --- | --- | --- |
+| ![Alert landscape](ui/v2-landscape.png) | ![Money flow layout](ui/v2-money-flow.png) | ![Replay](ui/v2-replay.png) |
+
+- **Alert landscape on open.** The empty canvas is now a graph of every alerted account: node size and ring colour follow
+  the triage score (red ≥ 60, amber ≥ 35, green below). Dashed teal links show shared devices and IPs. A double orange
+  ring marks a **collector**, an account with no alert of its own that receives money from three or more alerted accounts.
+  The mule ring, the vendor cluster and the structuring group stand out before anyone clicks.
+  Clicking an account opens its highest-scoring alert, and **All alerts** in the case header goes back to the landscape.
+  New endpoint: `GET /api/{tenant}/landscape`.
+- **Network / Money flow switch** (top right of a case graph). Money flow lays the case out left to right along the transfers:
+  senders, then the subject, then beneficiaries and cash-out points (dagre, `cytoscape-dagre@2.5.0`).
+  The switch is hidden on overview graphs (landscape, memory, consortium), where a ranked layout can't be read.
+- **Money moves.** Transfer edges carry marching dashes in the direction the money went. The wave button
+  (bottom right) turns this on or off; during a live run or replay every transfer animates.
+  Hovering a node animates just its transfers.
+- **Replay investigation.** On a finished case, **Replay investigation** rebuilds the graph one tool call at a time,
+  with a progress bar. After each step's layout settles, the camera moves to that step's subgraph, and the agent trace
+  fills in alongside. When the replay ends, the camera pulls back to the whole case. Offline mode finishes in about 2 seconds, so this
+  is what makes "watch the agent follow the money" visible in a demo.
+- **New evidence glows in.** Nodes added mid-investigation fade in with a short yellow glow.
+- **Live chip.** "Live · following the money" pulses on the canvas while an investigation streams.
+- **Case at a glance.** A floating panel with the risk ring, subjects, accounts, queries and findings (plus the SAR's
+  suspicious amount and activity window when Claude drafted it). The typologies moved into the case header.
+- **Camera fixes.** "Show all" now zooms back out, not just un-dims. Fit padding scales with canvas height so nodes clear
+  the overlays. The overlays compact themselves when the canvas is narrow (container query).
+- **Fix.** Edge totals now respect transfer counts that a tool had already summed (e.g. `$23.8k ×12`, not `×1`).
+- **Fix.** Node clicks always use the current handler (the old one was captured once at mount).
+
+Files: `backend/src/hound/api.py` (landscape endpoint), `frontend/src/components/GraphCanvas.tsx`,
+`frontend/src/views/Investigate.tsx`, `frontend/src/styles.css`, `frontend/src/api.ts`, `frontend/package.json`.
+
+## Round 1 — 2026-10-17: visual pass
 
 A visual pass over the Hound web app: the graph, how nodes are named, the Investigate screen and the app shell.
 No agent, rule or scoring logic changed; the one backend change adds data the graph needs (account holder names).
@@ -82,8 +118,7 @@ Every node now has a two-line caption: **who or what it is**, then **its identif
 
 ## Further ideas (not done)
 
-- Animate money along edges while the agent traces it (a moving dash on the edges a tool just read).
-- Time slider on the Investigate graph to replay transfers in order.
+- Time slider on the Investigate graph to replay transfers in timestamp order (money animation and step replay are done, in round 2).
 - Mini-map for large memory graphs.
 - Light theme.
 - Code-split Cytoscape so the first load is lighter (the bundle is about 700 kB before gzip).

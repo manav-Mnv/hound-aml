@@ -30,7 +30,7 @@ export function Consortium({ version, graphs }: { version: number; graphs: strin
             When Alpha's investigator checks a mule's phone, the hash matches what Beta Credit Union reported in September.</p>
           <div className="chips">{graphs.map((g) => <Badge key={g} tone={g.endsWith("consortium") ? "violet" : "info"}>{g}</Badge>)}</div>
         </div>
-        <div className="canvas-wrap">{graph.nodes.length ? <GraphCanvas graph={graph} /> : <Empty title="No signals shared yet" />}</div>
+        <div className="canvas-wrap">{graph.nodes.length ? <GraphCanvas graph={graph} modes={false} /> : <Empty title="No signals shared yet" />}</div>
       </div>
       <aside className="split-side">
         <div className="eyebrow">Signals in {data.graph}</div>

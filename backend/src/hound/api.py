@@ -229,6 +229,59 @@ def neighborhood(tenant: str, entity_id: str, limit: int = 60) -> dict:
             "edges": list(edges.values())}
 
 
+@app.get("/api/{tenant}/landscape")
+def landscape(tenant: str) -> dict:
+    """Every alerted account at once: who shares devices/IPs/phones, who pays whom, and where the money pools.
+    Parties are folded into their accounts so the picture stays one node per account."""
+    g = db.graph(_tenant(tenant))
+    queue = triage.queue(_tenant(tenant))
+    nodes: dict[str, dict] = {}
+    for a in queue:
+        n = nodes.setdefault(a["account"], {
+            "id": a["account"], "kind": "Account", "label": a["holder"], "holder": a["holder"], "party": a["party"],
+            "score": 0, "alerts": 0, "rules": [], "case_id": a["case_id"], "grp": a["grp"]})
+        n["score"] = max(n["score"], a["score"] or 0)
+        n["alerts"] += 1
+        if a["rule"] not in n["rules"]:
+            n["rules"].append(a["rule"])
+        n["case_id"] = n["case_id"] or a["case_id"]
+    accounts = list(nodes)
+    party_acc: dict[str, list[str]] = {}
+    for n in nodes.values():
+        party_acc.setdefault(n["party"], []).append(n["id"])
+    edges: dict[str, dict] = {}
+
+    shared, _ = db.rows(g, """UNWIND $pids AS pid MATCH (p:Party {id: pid})-[r]->(i)
+        WHERE i:Device OR i:IP OR i:Phone OR i:Email
+        WITH i, collect(DISTINCT p.id) AS ps WHERE size(ps) > 1
+        RETURN i, ps LIMIT 80""", {"pids": list(party_acc)})
+    for r in shared:
+        i = r["i"]
+        nodes[i["id"]] = {"id": i["id"], "kind": _kind(i["labels"]), "label": _label(i), "shared_by": len(r["ps"])}
+        for pid in r["ps"]:
+            for acc in party_acc.get(pid, []):
+                edges[f"{acc}|SHARES|{i['id']}"] = {"id": f"{acc}|SHARES|{i['id']}", "source": acc, "target": i["id"], "rel": "SHARES"}
+
+    flows, _ = db.rows(g, """MATCH (a:Account)-[t:TRANSFER]->(b:Account) WHERE a.id IN $acc AND b.id IN $acc
+        RETURN a.id AS s, b.id AS d, sum(t.amount) AS amount, count(t) AS n""", {"acc": accounts})
+    # Accounts outside the alert list that collect from three or more alerted accounts: the likely collectors.
+    pools, _ = db.rows(g, """MATCH (a:Account)-[t:TRANSFER]->(c:Account) WHERE a.id IN $acc AND NOT c.id IN $acc
+        WITH c, a, sum(t.amount) AS amount, count(t) AS n
+        WITH c, collect({s: a.id, amount: amount, n: n}) AS ins WHERE size(ins) > 2
+        OPTIONAL MATCH (h:Party)-[:HOLDS]->(c)
+        RETURN c.id AS id, labels(c) AS labels, c.country AS country, h.name AS holder, ins
+        ORDER BY size(ins) DESC LIMIT 12""", {"acc": accounts})
+    for p in pools:
+        nodes[p["id"]] = {"id": p["id"], "kind": "External" if "External" in p["labels"] else "Account",
+                          "label": p["holder"] or p["id"], "holder": p["holder"], "country": p["country"], "collector": True}
+        flows += [{"s": i["s"], "d": p["id"], "amount": i["amount"], "n": i["n"]} for i in p["ins"]]
+    for f in flows:
+        key = f"{f['s']}|TRANSFER|{f['d']}"
+        edges[key] = {"id": key, "source": f["s"], "target": f["d"], "rel": "TRANSFER", "amount": f["amount"], "count": f["n"]}
+    return {"nodes": [{k: v for k, v in n.items() if v is not None} for n in nodes.values()],
+            "edges": list(edges.values())}
+
+
 @app.get("/api/{tenant}/memory")
 def memory_graph(tenant: str) -> dict:
     """The agents' memory as a graph: cases, findings, lessons, playbooks, agent runs and what they hang off."""

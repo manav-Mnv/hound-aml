@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api } from "../api";
+import { api, money } from "../api";
 import type { Alert, CaseDetail, Evidence, Subgraph, TraceEvent } from "../types";
 import { GraphCanvas, mergeGraphs } from "../components/GraphCanvas";
 import { Trace } from "../components/Trace";
 import { SarView } from "../components/SarView";
 import { Badge, Collapse, Cypher, Empty, IdChip, ScoreRing, dispositionLabel, dispositionTone } from "../components/bits";
-import { RULE_SHORT } from "../format";
+import { RULE_SHORT, humanize } from "../format";
 
 const EMPTY: Subgraph = { nodes: [], edges: [] };
 type Tab = "trace" | "findings" | "sar" | "evidence";
@@ -27,11 +27,22 @@ export function Investigate({ tenant, llm, onChanged, focusAlert }: Props) {
   const [note, setNote] = useState("");
   const [toast, setToast] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [landscape, setLandscape] = useState<Subgraph>(EMPTY);
+  const [replay, setReplay] = useState<{ step: number; total: number } | null>(null);
+  const replayTimer = useRef<number | null>(null);
+  const stopReplay = () => {
+    if (replayTimer.current) window.clearTimeout(replayTimer.current);
+    replayTimer.current = null;
+    setReplay(null);
+  };
+  useEffect(() => () => { if (replayTimer.current) window.clearTimeout(replayTimer.current); }, []);
   const stopRef = useRef<(() => void) | null>(null);
   const liveEvidence = useRef<Record<string, TraceEvent>>({});
 
   const loadAlerts = useCallback(() => api.alerts(tenant).then(setAlerts), [tenant]);
-  useEffect(() => { loadAlerts(); setSelected(null); setDetail(null); setEvents([]); setGraph(EMPTY); }, [tenant, loadAlerts]);
+  const loadLandscape = useCallback(() => { api.landscape(tenant).then(setLandscape).catch(() => undefined); }, [tenant]);
+  useEffect(() => { loadAlerts(); setSelected(null); setDetail(null); setEvents([]); setGraph(EMPTY); setLandscape(EMPTY); loadLandscape(); },
+    [tenant, loadAlerts, loadLandscape]);
   useEffect(() => setMode(llm ? "auto" : "offline"), [llm]);
 
   const groupSizes = useMemo(() => {
@@ -58,6 +69,9 @@ export function Investigate({ tenant, llm, onChanged, focusAlert }: Props) {
 
   const selectAlert = useCallback(async (a: Alert) => {
     stopRef.current?.();
+    if (replayTimer.current) window.clearTimeout(replayTimer.current);
+    replayTimer.current = null;
+    setReplay(null);
     setSelected(a); setHighlight([]); setEvidenceSel(null); setRunning(false); setNote("");
     if (a.case_id) {
       setTab("trace");
@@ -98,10 +112,54 @@ export function Investigate({ tenant, llm, onChanged, focusAlert }: Props) {
         setRunning(false);
         setHighlight([]);
         loadAlerts();
+        loadLandscape();
         onChanged();
         if (caseId) loadCase(caseId, true);
       }
     });
+  };
+
+  /** Re-run a finished case step by step: the graph grows one tool call at a time and the camera follows. */
+  const startReplay = () => {
+    if (!detail || !selected) return;
+    stopReplay();
+    const steps = detailToEvents(detail).filter((e) => e.type !== "handoff");
+    let g: Subgraph = {
+      nodes: [{ id: selected.account, kind: "Account", label: selected.holder, holder: selected.holder, focus: true, alert: true }],
+      edges: [],
+    };
+    setGraph(g); setEvents([]); setHighlight([]); setTab("trace"); setEvidenceSel(null);
+    let i = 0;
+    const next = () => {
+      if (i >= steps.length) {
+        replayTimer.current = window.setTimeout(() => { setHighlight([]); setReplay(null); replayTimer.current = null; }, 1200);
+        return;
+      }
+      const e = steps[i++];
+      setEvents((prev) => [...prev, e]);
+      if (e.type === "evidence" && e.graph) {
+        g = mergeGraphs(g, e.graph);
+        setGraph(g);
+        setHighlight(e.graph.nodes.map((n) => n.id));
+      }
+      setReplay({ step: i, total: steps.length });
+      replayTimer.current = window.setTimeout(next, e.type === "evidence" ? 1700 : 900);
+    };
+    replayTimer.current = window.setTimeout(next, 500);
+  };
+
+  const backToLandscape = () => {
+    stopRef.current?.();
+    stopReplay();
+    setSelected(null); setDetail(null); setEvents([]); setGraph(EMPTY); setHighlight([]); setEvidenceSel(null); setTab("trace");
+  };
+
+  /** In the landscape a click opens that account's highest-scoring alert; inside a case it focuses the node. */
+  const onNode = (id: string) => {
+    if (selected) { setHighlight([id]); return; }
+    const best = alerts.filter((a) => a.account === id).sort((x, y) => (y.score ?? 0) - (x.score ?? 0))[0];
+    if (best) selectAlert(best);
+    else setHighlight([id]);
   };
 
   const selectEvidence = (id: string) => {
@@ -175,6 +233,10 @@ export function Investigate({ tenant, llm, onChanged, focusAlert }: Props) {
           <div className="case-bar">
             <div className="case-id">
               <div className="case-chips">
+                <button className="back" onClick={backToLandscape} disabled={running} title="Back to the alert landscape">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+                  All alerts
+                </button>
                 {c && <IdChip id={c.id} title="Case" />}
                 <IdChip id={selected.id} title={`Alert: ${selected.rule_name}`} />
                 <IdChip id={selected.account} title="Account under review" />
@@ -183,8 +245,14 @@ export function Investigate({ tenant, llm, onChanged, focusAlert }: Props) {
             </div>
             <div className="case-meta">
               {c?.disposition && <Badge tone={dispositionTone(c.disposition)}>{dispositionLabel(c.disposition)}</Badge>}
+              {c?.typologies?.filter((t) => t !== "BENIGN_EXPLANATION").map((t) => <Badge key={t}>{humanize(t)}</Badge>)}
               {c?.risk_score != null && <span className="muted">risk {Math.round(c.risk_score)}</span>}
-              {c && <span className="muted">{c.alerts.length} alert(s) · {c.accounts.length} account(s) · {detail?.evidence.length} evidence</span>}
+              {c && !replay && (
+                <button className="replay-btn" onClick={startReplay} title="Replay the investigation step by step">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 7 4.5z" /></svg>
+                  Replay investigation
+                </button>
+              )}
               {!c && !running && (
                 <>
                   <select value={mode} onChange={(e) => setMode(e.target.value as any)} className="mode">
@@ -198,14 +266,41 @@ export function Investigate({ tenant, llm, onChanged, focusAlert }: Props) {
             </div>
           </div>
         ) : (
-          <div className="case-bar"><div className="case-hint">Pick an alert from the queue. Highest triage scores first.</div></div>
+          <div className="case-bar">
+            <div className="case-id">
+              <div className="eyebrow">Alert landscape</div>
+              <div className="case-title">Every alerted account, and what ties them together</div>
+            </div>
+            <div className="case-meta landscape-stats">
+              <span><b>{landscape.nodes.filter((n) => typeof n.score === "number").length}</b> alerted accounts</span>
+              <span><b>{landscape.nodes.filter((n) => n.collector).length}</b> collectors</span>
+              <span><b>{landscape.nodes.filter((n) => typeof n.shared_by === "number").length}</b> shared devices / IPs</span>
+            </div>
+          </div>
         )}
         <div className="canvas-wrap">
-          {graph.nodes.length ? (
-            <GraphCanvas graph={graph} highlight={highlight} onSelect={(id) => setHighlight([id])} />
+          {(selected ? graph : landscape).nodes.length ? (
+            <GraphCanvas graph={selected ? graph : landscape} highlight={highlight} onSelect={onNode} live={running || !!replay} modes={!!selected} />
           ) : (
-            <Empty title="Graph context appears here">Each tool call adds the subgraph it read, so you can watch the agent follow the money.</Empty>
+            <Empty title={selected ? "Graph context appears here" : "Loading the alert landscape…"}>
+              {selected ? "Each tool call adds the subgraph it read, so you can watch the agent follow the money." : "Alerted accounts, the devices they share and the accounts their money pools in."}
+            </Empty>
           )}
+          {!selected && landscape.nodes.length > 0 && (
+            <div className="g-note">
+              <b>Bigger and redder</b> = higher triage score. <span className="g-note-key collector" /> collectors receive from 3+ alerted accounts.
+              Click an account to open its top alert.
+            </div>
+          )}
+          {running && <div className="live-chip"><i /> Live · following the money</div>}
+          {replay && (
+            <div className="live-chip replay">
+              <i /> Replay · step {replay.step} of {replay.total}
+              <span className="replay-bar"><span style={{ width: `${(replay.step / replay.total) * 100}%` }} /></span>
+              <button onClick={() => { stopReplay(); setHighlight([]); if (detail) loadCase(detail.case.id); }} aria-label="Stop replay">Stop</button>
+            </div>
+          )}
+          {c && detail && !running && !replay && <CaseGlance detail={detail} />}
           {highlight.length > 0 && <button className="clear-hl" onClick={() => setHighlight([])}>Show all</button>}
         </div>
         {c && (c.status === "PENDING_APPROVAL" || c.disposition === "FALSE_POSITIVE") && c.origin === "hound" && (
@@ -285,6 +380,29 @@ export function Investigate({ tenant, llm, onChanged, focusAlert }: Props) {
           )}
         </div>
       </aside>
+    </div>
+  );
+}
+
+function CaseGlance({ detail }: { detail: CaseDetail }) {
+  const c = detail.case;
+  const sar = detail.sar?.narrative;
+  const risk = Math.round(c.risk_score ?? 0);
+  const tone = risk >= 60 ? "danger" : risk >= 35 ? "warn" : "ok";
+  const short = (d?: string) => (d ? new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "");
+  return (
+    <div className="glance">
+      <div className={`glance-risk tone-${tone}`}><ScoreRing score={risk} size={44} /><span>risk</span></div>
+      {sar?.total_suspicious_amount ? (
+        <div className="glance-cell"><b>{money(sar.total_suspicious_amount)}</b><span>suspicious</span></div>
+      ) : null}
+      {sar?.activity_start && sar.activity_end ? (
+        <div className="glance-cell"><b>{short(sar.activity_start)} – {short(sar.activity_end)}</b><span>activity</span></div>
+      ) : null}
+      <div className="glance-cell"><b>{c.subjects.length}</b><span>subjects</span></div>
+      <div className="glance-cell"><b>{c.accounts.length}</b><span>accounts</span></div>
+      <div className="glance-cell opt"><b>{detail.evidence.length}</b><span>queries</span></div>
+      <div className="glance-cell opt"><b>{detail.findings.length}</b><span>findings</span></div>
     </div>
   );
 }

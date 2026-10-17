@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import cytoscape, { type Core, type ElementDefinition, type EventObject } from "cytoscape";
 import fcose from "cytoscape-fcose";
+import dagre from "cytoscape-dagre";
 import type { GNode, Subgraph } from "../types";
 import { money } from "../api";
 import { RULE_SHORT, humanize, kindLabel, nodeCaption } from "../format";
 
 cytoscape.use(fcose);
+cytoscape.use(dagre);
 
 // Lucide-style 24px stroke icons drawn inside each node.
 const ICON = {
@@ -82,20 +84,28 @@ export function toElements(g: Subgraph): ElementDefinition[] {
     if (!ids.has(e.source) || !ids.has(e.target)) continue;
     const id = `${e.source}|${e.rel}|${e.target}`;
     const cur = agg.get(id);
-    if (cur) { cur.amount += Number(e.amount ?? 0); cur.count += 1; }
-    else agg.set(id, { id, source: e.source, target: e.target, rel: e.rel, amount: Number(e.amount ?? 0), count: 1, pct: e.pct as number | undefined });
+    const n = Number(e.count ?? 1);
+    if (cur) { cur.amount += Number(e.amount ?? 0); cur.count += n; }
+    else agg.set(id, { id, source: e.source, target: e.target, rel: e.rel, amount: Number(e.amount ?? 0), count: n, pct: e.pct as number | undefined });
   }
   const maxAmt = Math.max(1, ...[...agg.values()].filter((e) => MONEY.has(e.rel)).map((e) => e.amount));
 
   const nodes: ElementDefinition[] = g.nodes.map((n: GNode) => {
     const s = kindStyle(n.kind);
     const { title, sub } = nodeCaption(n);
+    const score = typeof n.score === "number" ? n.score : null;
+    let size = s.size;
+    if (score != null) size = s.size * (0.8 + (0.8 * score) / 100);
+    if (typeof n.shared_by === "number") size = s.size * Math.min(1.8, 0.9 + 0.1 * n.shared_by);
+    if (n.collector) size = s.size * 1.35;
+    if (n.focus) size *= 1.3;
+    const risk = score == null ? "" : score >= 60 ? "risk-high" : score >= 35 ? "risk-med" : "risk-low";
     return {
       data: {
         id: n.id, kind: n.kind, label: sub ? `${title}\n${sub}` : title, color: s.color, shape: s.shape,
-        size: n.focus ? Math.round(s.size * 1.3) : s.size, icon: iconUri(n.kind), raw: n,
+        size: Math.round(size), icon: iconUri(n.kind), raw: n,
       },
-      classes: [n.focus ? "focus" : "", n.alert ? "alerted" : ""].join(" ").trim(),
+      classes: [n.focus ? "focus" : "", n.alert ? "alerted" : "", risk, n.collector ? "collector" : ""].join(" ").trim(),
     };
   });
   const edges: ElementDefinition[] = [...agg.values()].map((e) => {
@@ -153,6 +163,13 @@ const STYLE: any[] = [
       "underlay-shape": "ellipse", "background-color": "#1a1410", color: "#ffffff", "font-weight": 700, "font-size": 11,
     },
   },
+  { selector: "node.risk-high", style: { "border-color": "#f05252", "border-width": 2.5, "underlay-color": "#f05252", "underlay-opacity": 0.16, "underlay-padding": 6, "underlay-shape": "ellipse" } },
+  { selector: "node.risk-med", style: { "border-color": "#f5a524", "border-width": 2.5 } },
+  { selector: "node.risk-low", style: { "border-color": "#2fbf71" } },
+  {
+    selector: "node.collector",
+    style: { "border-color": "#ff8a1f", "border-style": "double", "border-width": 5, "underlay-color": "#ff8a1f", "underlay-opacity": 0.14, "underlay-padding": 8, "underlay-shape": "ellipse", color: "#ffd2a6", "font-weight": 700 },
+  },
   { selector: "node:selected", style: { "border-color": "#fde047", "border-width": 3 } },
   { selector: "node.hl", style: { "border-color": "#fde047", "border-width": 3, "underlay-color": "#fde047", "underlay-opacity": 0.12, "underlay-padding": 6, "underlay-shape": "ellipse", color: "#fff" } },
   {
@@ -178,6 +195,8 @@ const STYLE: any[] = [
     selector: "edge.link",
     style: { "line-style": "dashed", "line-dash-pattern": [5, 4], "target-arrow-shape": "none", "line-color": "rgba(45,212,191,0.45)" },
   },
+  { selector: "edge.flowing", style: { "line-style": "dashed", "line-dash-pattern": [9, 5] } },
+  { selector: "node.fresh", style: { "underlay-color": "#fde047", "underlay-opacity": 0.3, "underlay-padding": 8, "underlay-shape": "ellipse" } },
   { selector: ".dim", style: { opacity: 0.08 } },
   { selector: ".faded", style: { opacity: 0.16 } },
   { selector: ".hidden-kind", style: { display: "none" } },
@@ -194,6 +213,10 @@ interface Props {
   onSelect?: (id: string, kind: string) => void;
   layoutKey?: string;
   legend?: boolean;
+  /** An investigation is streaming: animate every money edge. */
+  live?: boolean;
+  /** Offer the Network / Money flow switch (off for disconnected overviews, where a ranked layout is unreadable). */
+  modes?: boolean;
 }
 
 type Tip =
@@ -201,13 +224,33 @@ type Tip =
   | { type: "edge"; x: number; y: number; r: number; rel: string; amount: number; count: number; label: string };
 
 const FIT_ZOOM = 1.5;
+type Mode = "network" | "flow";
 
-export function GraphCanvas({ graph, highlight, onSelect, layoutKey, legend = true }: Props) {
+export function GraphCanvas({ graph, highlight, onSelect, layoutKey, legend = true, live = false, modes = true }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const cy = useRef<Core | null>(null);
   const layoutRef = useRef<cytoscape.Layouts | null>(null);
+  const onSelectRef = useRef(onSelect);
+  onSelectRef.current = onSelect;
   const [tip, setTip] = useState<Tip | null>(null);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const [mode, setMode] = useState<Mode>("network");
+  const modeRef = useRef<Mode>(mode);
+  modeRef.current = modes ? mode : "network";
+  const busy = useRef(false);
+  const hadHighlight = useRef(false);
+  const [animate, setAnimate] = useState(true);
+  const flow = useRef({ all: animate, live });
+  flow.current = { all: animate, live };
+
+  /** Which money edges march: all of them when animating or live, otherwise just the highlighted evidence. */
+  const refreshFlow = () => {
+    const c = cy.current;
+    if (!c) return;
+    const money = c.edges(".money");
+    money.removeClass("flowing");
+    (flow.current.all || flow.current.live ? money : money.filter(".hl")).addClass("flowing");
+  };
 
   const runLayout = (randomize: boolean) => {
     const c = cy.current;
@@ -217,13 +260,24 @@ export function GraphCanvas({ graph, highlight, onSelect, layoutKey, legend = tr
     c.stop(true, true);
     c.resize();
     c.maxZoom(FIT_ZOOM); // keep small graphs from filling the screen with three nodes
-    const layout = c.layout({
-      name: "fcose", quality: "default", animate: c.nodes().length < 220, animationDuration: 500, randomize,
-      nodeDimensionsIncludeLabels: true, nodeSeparation: 80, nodeRepulsion: () => 11000,
-      idealEdgeLength: (e: any) => (e.hasClass("link") ? 60 : 100), edgeElasticity: () => 0.4, gravity: 0.3,
-      numIter: 2500, packComponents: true, fit: true, padding: 48,
-    } as any);
-    layout.one("layoutstop", () => c.maxZoom(3));
+    const animated = c.nodes().length < 220;
+    // Room for the overlays (panel, mode switch, legend) along the top and bottom edges.
+    const pad = Math.round(Math.max(40, Math.min(74, c.height() * 0.09)));
+    const layout = c.layout((modeRef.current === "flow"
+      ? {
+        // Money flow: senders on the left, beneficiaries on the right, ranked along the transfers.
+        name: "dagre", rankDir: "LR", ranker: "network-simplex", nodeSep: 26, rankSep: 130, edgeSep: 8,
+        edgeWeight: (e: any) => (e.hasClass("money") ? 3 : 1), nodeDimensionsIncludeLabels: true,
+        animate: animated, animationDuration: 550, animationEasing: "ease-in-out-cubic", fit: true, padding: pad,
+      }
+      : {
+        name: "fcose", quality: "default", animate: animated, animationDuration: 500, randomize,
+        nodeDimensionsIncludeLabels: true, nodeSeparation: 80, nodeRepulsion: () => 11000,
+        idealEdgeLength: (e: any) => (e.hasClass("link") ? 60 : 100), edgeElasticity: () => 0.4, gravity: 0.3,
+        numIter: 2500, packComponents: true, fit: true, padding: pad,
+      }) as any);
+    busy.current = true;
+    layout.one("layoutstop", () => { busy.current = false; c.maxZoom(3); });
     layoutRef.current = layout;
     layout.run();
   };
@@ -232,10 +286,11 @@ export function GraphCanvas({ graph, highlight, onSelect, layoutKey, legend = tr
     if (!ref.current) return;
     const c = cytoscape({ container: ref.current, wheelSensitivity: 0.25, minZoom: 0.1, maxZoom: 3, style: STYLE, boxSelectionEnabled: false });
     cy.current = c;
-    c.on("tap", "node", (evt) => onSelect?.(evt.target.id(), evt.target.data("kind")));
+    c.on("tap", "node", (evt) => onSelectRef.current?.(evt.target.id(), evt.target.data("kind")));
     c.on("mouseover", "node", (evt: EventObject) => {
       const n = evt.target;
       if (!c.elements(".hl").length) c.elements().not(n.closedNeighborhood()).addClass("faded");
+      n.connectedEdges(".money").addClass("flowing");
       const p = n.renderedPosition();
       setTip({ type: "node", x: p.x, y: p.y, r: n.renderedOuterHeight() / 2, node: n.data("raw") });
       if (ref.current) ref.current.style.cursor = "pointer";
@@ -248,6 +303,7 @@ export function GraphCanvas({ graph, highlight, onSelect, layoutKey, legend = tr
     });
     c.on("mouseout", "node, edge", () => {
       c.elements().removeClass("faded hover");
+      refreshFlow();
       setTip(null);
       if (ref.current) ref.current.style.cursor = "";
     });
@@ -255,7 +311,19 @@ export function GraphCanvas({ graph, highlight, onSelect, layoutKey, legend = tr
     // The header above the canvas changes height with the selection; keep Cytoscape's cached size honest.
     const ro = new ResizeObserver(() => c.resize());
     ro.observe(ref.current);
-    return () => { ro.disconnect(); c.destroy(); };
+    // Marching dashes along money edges, in the direction the money moved.
+    let raf = 0, last = 0, offset = 0;
+    const tick = (t: number) => {
+      raf = requestAnimationFrame(tick);
+      if (t - last < 40) return;
+      last = t;
+      const marching = c.edges(".flowing");
+      if (!marching.length) return;
+      offset = offset <= -1400 ? 0 : offset - 1.4;
+      c.batch(() => marching.style("line-dash-offset", offset));
+    };
+    raf = requestAnimationFrame(tick);
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); c.destroy(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -264,7 +332,9 @@ export function GraphCanvas({ graph, highlight, onSelect, layoutKey, legend = tr
     if (!c) return;
     const els = toElements(graph);
     const wanted = new Set(els.map((e) => e.data.id as string));
+    const incremental = c.nodes().length > 0;
     let added = 0;
+    let fresh = c.collection();
     c.batch(() => {
       c.elements().forEach((el) => { if (!wanted.has(el.id())) el.remove(); });
       for (const el of els) {
@@ -273,13 +343,21 @@ export function GraphCanvas({ graph, highlight, onSelect, layoutKey, legend = tr
           existing.data(el.data);
           existing.classes((el.classes as string) || "");
         } else {
-          c.add(el);
+          const a = c.add(el);
           added += 1;
+          if (a.isNode()) fresh = fresh.union(a);
         }
       }
     });
     applyHidden(c, hidden);
     runLayout(added > c.nodes().length / 2);
+    refreshFlow();
+    // New evidence arriving mid-investigation: fade the nodes in with a brief glow so the eye can follow.
+    if (incremental && fresh.nonempty() && fresh.length < c.nodes().length) {
+      fresh.style("opacity", 0).addClass("fresh");
+      fresh.animate({ style: { opacity: 1 } } as any, { duration: 450, queue: false, complete: () => fresh.removeStyle("opacity") } as any);
+      window.setTimeout(() => fresh.removeClass("fresh"), 1500);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [graph, layoutKey]);
 
@@ -287,6 +365,16 @@ export function GraphCanvas({ graph, highlight, onSelect, layoutKey, legend = tr
     const c = cy.current;
     if (!c) return;
     c.elements().removeClass("dim hl");
+    if (!highlight?.length && hadHighlight.current) {
+      // Highlight cleared ("Show all", end of a replay): pull the camera back to the whole graph.
+      const back = () => {
+        c.maxZoom(FIT_ZOOM);
+        c.animate({ fit: { eles: c.elements(":visible"), padding: 56 }, duration: 450, easing: "ease-in-out-cubic", complete: () => c.maxZoom(3) } as any);
+      };
+      if (busy.current && layoutRef.current) layoutRef.current.one("layoutstop", back);
+      else back();
+    }
+    hadHighlight.current = !!highlight?.length;
     if (highlight && highlight.length) {
       const set = new Set(highlight);
       const picked = c.nodes().filter((n) => set.has(n.id()));
@@ -298,11 +386,27 @@ export function GraphCanvas({ graph, highlight, onSelect, layoutKey, legend = tr
       edges.addClass("hl");
       if (highlight.length === 1) c.nodes().filter((n) => !set.has(n.id())).removeClass("hl");
       if (nodes.length) {
-        c.maxZoom(1.8);
-        c.animate({ fit: { eles: nodes, padding: 70 }, duration: 380, easing: "ease-in-out-cubic", complete: () => c.maxZoom(3) } as any);
+        // Let a running layout settle first, then move the camera to the evidence.
+        const focus = () => {
+          c.maxZoom(1.8);
+          c.animate({ fit: { eles: nodes, padding: 70 }, duration: 420, easing: "ease-in-out-cubic", complete: () => c.maxZoom(3) } as any);
+        };
+        if (busy.current && layoutRef.current) layoutRef.current.one("layoutstop", focus);
+        else focus();
       }
     }
+    refreshFlow();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [highlight]);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { refreshFlow(); }, [animate, live]);
+  const firstMode = useRef(true);
+  useEffect(() => {
+    if (firstMode.current) { firstMode.current = false; return; }
+    runLayout(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
 
   useEffect(() => { if (cy.current) applyHidden(cy.current, hidden); }, [hidden]);
 
@@ -333,7 +437,20 @@ export function GraphCanvas({ graph, highlight, onSelect, layoutKey, legend = tr
     <>
       <div className="graph-canvas" ref={ref} />
       {tip && <GraphTip tip={tip} />}
+      {modes && <div className="g-modes" role="group" aria-label="Graph layout">
+        <button className={mode === "network" ? "on" : ""} onClick={() => setMode("network")} title="Network layout: clusters and rings">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="5" r="2.5" /><circle cx="5" cy="18" r="2.5" /><circle cx="19" cy="18" r="2.5" /><path d="M11 7.3 6.2 15.8M13 7.3l4.8 8.5M7.5 18h9" /></svg>
+          <span>Network</span>
+        </button>
+        <button className={mode === "flow" ? "on" : ""} onClick={() => setMode("flow")} title="Money flow: senders left, beneficiaries right">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h7l4 6-4 6H3M14 12h7M18 9l3 3-3 3" /></svg>
+          <span>Money flow</span>
+        </button>
+      </div>}
       <div className="g-controls">
+        <button className={animate ? "on" : ""} onClick={() => setAnimate((a) => !a)} title={animate ? "Stop money animation" : "Animate money along transfers"} aria-label="Toggle money animation">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M2 12c2-4 4-4 6 0s4 4 6 0 4-4 6 0" /><path d="M2 18h3M9 18h3M16 18h3" /></svg>
+        </button>
         <button onClick={() => zoomBy(1.3)} title="Zoom in" aria-label="Zoom in">+</button>
         <button onClick={() => zoomBy(1 / 1.3)} title="Zoom out" aria-label="Zoom out">−</button>
         <button onClick={fit} title="Fit graph to view" aria-label="Fit graph">
@@ -395,17 +512,24 @@ function GraphTip({ tip }: { tip: Tip }) {
   if (n.bank) rows.push(["Bank", String(n.bank)]);
   if (n.rule_name) rows.push(["Rule", `${n.rule} · ${n.rule_name}`]);
   else if (n.kind === "Alert") rows.push(["Rule", RULE_SHORT[n.id.split("-")[1]] ?? ""]);
+  if (typeof n.score === "number") rows.push(["Triage score", String(Math.round(n.score))]);
+  if (Array.isArray(n.rules) && n.rules.length) rows.push(["Rules", n.rules.map((r) => `${r} ${RULE_SHORT[r as string] ?? ""}`).join(", ")]);
+  if (n.case_id) rows.push(["Case", String(n.case_id)]);
+  if (typeof n.shared_by === "number") rows.push(["Shared by", `${n.shared_by} parties`]);
   if (n.disposition) rows.push(["Outcome", humanize(String(n.disposition))]);
   if (n.country) rows.push(["Country", String(n.country)]);
   if (typeof n.alerts === "number" && n.alerts > 0) rows.push(["Alerts", String(n.alerts)]);
   const text = typeof n.text === "string" && n.text.length > title.length ? n.text : "";
+  const hint = n.collector ? "Receives money from several alerted accounts but has no alert of its own." : "";
   return (
     <div className={`g-tip ${below ? "below" : ""}`} style={style}>
       <div className="g-tip-kind"><KindIcon kind={n.kind} size={14} /> {kindLabel(n.kind)}
         {n.focus && <span className="g-tip-tag">subject</span>}{n.alert && <span className="g-tip-tag red">alerted</span>}
+        {!!n.collector && <span className="g-tip-tag">collector</span>}
       </div>
       <div className="g-tip-title">{title}</div>
       {text && <div className="g-tip-text">{text.length > 180 ? `${text.slice(0, 179)}…` : text}</div>}
+      {hint && <div className="g-tip-text">{hint}</div>}
       <dl>{rows.map(([k, v]) => <div key={k}><dt>{k}</dt><dd className={k === "ID" ? "mono" : ""}>{v}</dd></div>)}</dl>
     </div>
   );

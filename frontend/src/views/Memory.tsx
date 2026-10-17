@@ -23,7 +23,7 @@ export function Memory({ tenant, version }: { tenant: string; version: number })
             analyst's note from August, and how the triage agent knows a payroll processor was already cleared.</p>
         </div>
         <div className="canvas-wrap tall">
-          {graph.nodes.length ? <GraphCanvas graph={graph} onSelect={(id) => setSel(id)} /> : <Empty title="No memory yet" />}
+          {graph.nodes.length ? <GraphCanvas graph={graph} onSelect={(id) => setSel(id)} modes={false} /> : <Empty title="No memory yet" />}
         </div>
       </div>
       <aside className="split-side">
