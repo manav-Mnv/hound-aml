@@ -6,15 +6,15 @@ Graph Hacks 2026 (WeMakeDevs × FalkorDB) · **Tracks: 01 Agents That Act on Con
 
 [![CI](https://github.com/manav-Mnv/hound-aml/actions/workflows/ci.yml/badge.svg)](https://github.com/manav-Mnv/hound-aml/actions/workflows/ci.yml) `FalkorDB 6.0 (Rust engine)` · `Claude Opus 5.5` · `MCP` · `Python / FastAPI` · `React + Cytoscape` · all data synthetic
 
-> Live demo: **https://hound-99l2.onrender.com** (free tier: first load after idle takes ~1 min) · Demo video: _add link_ · Blog post: [docs/BLOG.md](docs/BLOG.md)
+> Live demo: **[hound-99l2.onrender.com](https://hound-99l2.onrender.com)** (free tier: first load after idle takes ~1 min) · Demo video: _add link_ · Blog post: [docs/BLOG.md](docs/BLOG.md)
 
 ---
 
 ## The problem
 
-Banks run threshold rules over transactions. The rules fire constantly and are mostly wrong: industry surveys put **90-95% of transaction-monitoring alerts as false positives** ([NICE Actimize](https://www.niceactimize.com/Documents/aml_ai_in_aml_insights_report.pdf)). Each alert is worked by an analyst who stitches together accounts, devices, counterparties and old cases by hand, often while a colleague works a related alert on the same ring. FinCEN received about **4.7 million SARs in FY2024**, and when it goes wrong it is expensive: TD Bank paid **~$3.09 billion** in 2024 after laundering networks moved $670M+ through accounts it was not monitoring.
+Banks run threshold rules over transactions. The rules fire constantly and are mostly wrong: a NICE Actimize industry survey found **almost 95% of alerts end as false positives** ([report, archived copy](https://web.archive.org/web/20240508024800/https://www.niceactimize.com/Documents/aml_ai_in_aml_insights_report.pdf)). Each alert is worked by an analyst who stitches together accounts, devices, counterparties and old cases by hand, often while a colleague works a related alert on the same ring. Institutions filed about **4.7 million SARs in FY2024** ([ABA Banking Journal on FinCEN's figures](https://bankingjournal.aba.com/2025/06/fincen-releases-figures-on-bsa-filings/)), and when it goes wrong it is expensive: TD Bank paid **about $3 billion** in 2024 after laundering networks moved $670M+ through its accounts ([NBC News](https://www.nbcnews.com/business/business-news/td-bank-pleads-guilty-money-laundering-case-will-pay-3-billion-penalti-rcna174912), [CBC](https://www.cbc.ca/news/business/td-bank-penalties-1.7348819)).
 
-The answers analysts need are about connections, which is exactly what a graph stores: *who else uses this phone, where did the money go next, who ultimately owns this supplier, have we seen this before?* The industry is moving the same way: FIS and Anthropic announced a Financial Crimes AI Agent in May 2026 and Nasdaq Verafin an Agentic AML Analyst in June 2026. Full fact-checked research: [docs/MARKET_RESEARCH.md](docs/MARKET_RESEARCH.md).
+The answers analysts need are about connections, which is exactly what a graph stores: *who else uses this phone, where did the money go next, who ultimately owns this supplier, have we seen this before?* The industry is moving the same way: FIS and Anthropic announced a Financial Crimes AI Agent in May 2026 ([FIS](https://www.fisglobal.com/about-us/media-room/press-release/2026/fis-brings-agentic-ai-to-banking-with-anthropic-starting-with-financial-crimes)) and Nasdaq Verafin an Agentic AML Analyst in June 2026 ([Verafin](https://verafin.com/news/nasdaq-verafin-announces-expansion-of-its-agentic-ai-workforce/)). Full fact-checked research: [docs/MARKET_RESEARCH.md](docs/MARKET_RESEARCH.md).
 
 ## What Hound does
 
