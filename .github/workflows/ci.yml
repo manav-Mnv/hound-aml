@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t hound .
+      - name: Boot, seed and investigate
+        run: |
+          docker run -d --name hound -p 7860:7860 hound
+          for i in $(seq 1 90); do
+            n=$(curl -s localhost:7860/api/alpha/alerts | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' 2>/dev/null || echo 0)
+            [ "$n" -gt 0 ] && break; sleep 2
+          done
+          echo "alerts: $n"; [ "$n" -gt 50 ]
+          curl -s localhost:7860/api/status
+          alert=$(curl -s localhost:7860/api/alpha/alerts | python3 -c 'import json,sys; print(json.load(sys.stdin)[0]["id"])')
+          job=$(curl -s -X POST "localhost:7860/api/alpha/alerts/$alert/investigate?mode=offline" | python3 -c 'import json,sys; print(json.load(sys.stdin)["job_id"])')
+          timeout 120 curl -sN "localhost:7860/api/jobs/$job/events" > events.txt || true
+          grep -c '"type": "evidence"' events.txt
+          grep -q '"type": "case_done"' events.txt
+          curl -s localhost:7860/ | grep -q "<div id=\"root\">"
+      - name: Logs
+        if: always()
+        run: docker logs hound | tail -50
+
+  tests:
+    runs-on: ubuntu-latest
+    services:
+      falkordb:
+        image: falkordb/falkordb-server:latest
+        ports: ["6379:6379"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Seed and test
+        working-directory: backend
+        run: |
+          uv sync
+          uv run hound seed
+          uv run python -m pytest tests -q
+          uv run hound eval --mode offline

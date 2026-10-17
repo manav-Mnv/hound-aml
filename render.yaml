@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: hound
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/status
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: HOUND_LIVE_RUNS_PER_HOUR
+        value: "10"
