@@ -110,10 +110,10 @@ def ensure_playbooks(tenant: str, lessons: dict[str, str] | None = None) -> None
 def playbook(tenant: str, typology: str) -> dict:
     g = db.graph(tenant)
     steps, _ = db.rows(g, """MATCH (pb:Playbook {typology: $t})-[s:STEP]->(st:Step)
-                             RETURN st.tool AS tool, st.instruction AS instruction ORDER BY s.order""", {"t": typology})
+                             RETURN st.tool AS tool, st.instruction AS instruction, s.order AS ord ORDER BY ord""", {"t": typology})
     lessons, _ = db.rows(g, """MATCH (l:Lesson)-[:REFINES]->(:Playbook {typology: $t})
                                RETURN l.id AS id, l.text AS text, l.author AS author, l.created AS created
-                               ORDER BY l.created""", {"t": typology})
+                               ORDER BY created""", {"t": typology})
     return {"typology": typology, "steps": steps, "lessons": lessons}
 
 

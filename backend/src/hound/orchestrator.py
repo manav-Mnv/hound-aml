@@ -156,11 +156,11 @@ def case_detail(tenant: str, case_id: str) -> dict:
     findings, _ = db.rows(g, """MATCH (c:Case {id: $c})-[:HAS_FINDING]->(f:Finding)
                                 OPTIONAL MATCH (f)-[:SUPPORTED_BY]->(e:Evidence)
                                 RETURN f.id AS id, f.typology AS typology, f.claim AS claim, f.severity AS severity,
-                                       f.confidence AS confidence, collect(e.id) AS evidence ORDER BY f.created""", {"c": case_id})
+                                       f.confidence AS confidence, collect(e.id) AS evidence, f.created AS created ORDER BY created""", {"c": case_id})
     evidence, _ = db.rows(g, """MATCH (c:Case {id: $c})-[:HAS_EVIDENCE]->(e:Evidence)
                                 RETURN e.id AS id, e.tool AS tool, e.summary AS summary, e.cypher AS cypher,
-                                       e.params AS params, e.ms AS ms, e.rows AS rows, e.graph AS graph
-                                ORDER BY e.created""", {"c": case_id})
+                                       e.params AS params, e.ms AS ms, e.rows AS rows, e.graph AS graph, e.created AS created
+                                ORDER BY created""", {"c": case_id})
     for e in evidence:
         e["graph"] = json.loads(e["graph"]) if e.get("graph") else {"nodes": [], "edges": []}
     runs, _ = db.rows(g, """MATCH (r:AgentRun)-[:WORKED_ON]->(:Case {id: $c})
@@ -168,11 +168,11 @@ def case_detail(tenant: str, case_id: str) -> dict:
                             RETURN r.id AS id, r.agent AS agent, r.model AS model, r.mode AS mode, r.status AS status,
                                    r.started AS started, r.ended AS ended, r.input_tokens AS input_tokens,
                                    r.output_tokens AS output_tokens, r.tool_calls AS tool_calls,
-                                   collect({to: n.agent, note: h.note}) AS handoffs ORDER BY r.started""", {"c": case_id})
+                                   collect({to: n.agent, note: h.note}) AS handoffs ORDER BY started""", {"c": case_id})
     sar, _ = db.rows(g, """MATCH (s:SAR)-[:FOR_CASE]->(:Case {id: $c})
                            RETURN s.id AS id, s.status AS status, s.title AS title, s.narrative AS narrative,
-                                  s.review AS review, s.grounding AS grounding, s.mode AS mode
-                           ORDER BY s.created DESC LIMIT 1""", {"c": case_id})
+                                  s.review AS review, s.grounding AS grounding, s.mode AS mode, s.created AS created
+                           ORDER BY created DESC LIMIT 1""", {"c": case_id})
     if sar:
         sar[0]["narrative"] = json.loads(sar[0]["narrative"]) if sar[0].get("narrative", "").startswith("{") else sar[0]["narrative"]
         sar[0]["review"] = json.loads(sar[0]["review"]) if sar[0].get("review") else None
@@ -190,7 +190,7 @@ def list_cases(tenant: str) -> list[dict]:
         RETURN c.id AS id, c.status AS status, c.disposition AS disposition, c.typologies AS typologies,
                c.risk_score AS risk_score, c.opened AS opened, c.origin AS origin, count(DISTINCT al) AS alerts,
                collect(DISTINCT p.name) AS subjects
-        ORDER BY c.opened DESC""")
+        ORDER BY opened DESC""")
     return rows
 
 

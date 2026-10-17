@@ -259,7 +259,7 @@ def evidence(tenant: str, evidence_id: str) -> dict:
 def consortium_view() -> dict:
     rows, _ = db.rows(db.consortium(), """MATCH (i:Institution)-[r:REPORTED]->(s:Signal)
         RETURN i.id AS institution, i.name AS name, s.kind AS kind, substring(s.hash, 0, 16) AS hash,
-               r.typology AS typology, r.at AS at, r.case_ref AS case_ref ORDER BY r.at""")
+               r.typology AS typology, r.at AS at, r.case_ref AS case_ref ORDER BY at""")
     return {"graph": settings.consortium_graph, "signals": rows, **consortium.stats()}
 
 

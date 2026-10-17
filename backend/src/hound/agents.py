@@ -235,11 +235,11 @@ def case_dossier(tenant: str, case_id: str) -> dict:
     findings, _ = db.rows(g, """MATCH (c:Case {id: $c})-[:HAS_FINDING]->(f:Finding)
                                 OPTIONAL MATCH (f)-[:SUPPORTED_BY]->(e:Evidence)
                                 RETURN f.id AS id, f.typology AS typology, f.claim AS claim, f.severity AS severity,
-                                       f.confidence AS confidence, collect(e.id) AS evidence ORDER BY f.created""",
+                                       f.confidence AS confidence, collect(e.id) AS evidence, f.created AS created ORDER BY created""",
                           {"c": case_id})
     evidence, _ = db.rows(g, """MATCH (c:Case {id: $c})-[:HAS_EVIDENCE]->(e:Evidence)
-                                RETURN e.id AS id, e.tool AS tool, e.summary AS summary, e.data AS data
-                                ORDER BY e.created""", {"c": case_id})
+                                RETURN e.id AS id, e.tool AS tool, e.summary AS summary, e.data AS data, e.created AS created
+                                ORDER BY created""", {"c": case_id})
     return {"case": case[0] if case else {}, "findings": findings, "evidence": evidence}
 
 
