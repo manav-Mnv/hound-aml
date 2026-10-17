@@ -1,5 +1,7 @@
 # Hound 🐕
 
+![Status](https://img.shields.io/badge/status-hackathon%20project-8250df?style=flat-square)
+
 **AML investigation agents that follow the money through FalkorDB, remember every case, and write SARs where every sentence is backed by a Cypher query.**
 
 Graph Hacks 2026 (WeMakeDevs × FalkorDB) · **Tracks: 01 Agents That Act on Connected Data + 02 Agent Memory and Coordination**
