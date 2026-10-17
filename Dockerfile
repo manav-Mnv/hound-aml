@@ -8,8 +8,8 @@ RUN npm ci --no-audit --no-fund
 COPY frontend/ ./
 RUN npm run build
 
-# Official FalkorDB 6 server image: Debian trixie, redis-server + self-contained falkordb.so
-FROM falkordb/falkordb-server:latest AS falkordb
+# Official FalkorDB 6 server image (pinned: the `latest` tag currently points at 4.22.1)
+FROM falkordb/falkordb-server:6.0.2 AS falkordb
 
 FROM python:3.11-slim-trixie
 ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PYTHONPATH=/app/backend/src HOME=/home/user

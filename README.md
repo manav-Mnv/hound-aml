@@ -203,7 +203,7 @@ Tools (17): `get_alert, customer_profile, trace_money_flow, pass_through_analysi
 Requirements: Python 3.11+, [uv](https://docs.astral.sh/uv/), Node 20+, and FalkorDB.
 
 ```bash
-docker run -d -p 6379:6379 falkordb/falkordb-server:latest
+docker run -d -p 6379:6379 falkordb/falkordb-server:6.0.2
 ```
 
 ```bash

@@ -36,3 +36,4 @@ RETURN dir, x.id, h.id, count(t) AS n, sum(t.amount) AS total,
 - `shortestPath` is only allowed in `WITH`/`RETURN` (documented behaviour).
 - `exists((a)-[:R]->(b))` with a pattern argument is rejected; pattern predicates elsewhere work.
 - An inline property map that references another variable's property in a following `MATCH` (`MATCH (a) MATCH (j {code: a.country})`) raised "Variable a not found"; `WHERE j.code = a.country` works.
+- Docker tags: on 2026-10-17 `falkordb/falkordb-server:latest` resolves to **4.22.1** (C engine), not 6.0.x, presumably because the v4.22.1 release was published after 6.0.2. Hound pins `falkordb/falkordb-server:6.0.2`. On 4.22.1, `WITH coalesce(p, a) AS n ... MATCH (c)-[:R]->(n)` raised `_AR_EXP_UpdateEntityIdx: Unable to locate a value with alias n`.
