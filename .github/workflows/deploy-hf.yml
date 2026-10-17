@@ -1,8 +1,7 @@
 name: Deploy to Hugging Face Space
 
+# Manual only: Hugging Face now requires a PRO subscription for Docker Spaces.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 jobs:
