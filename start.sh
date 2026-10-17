@@ -5,7 +5,8 @@ DATA_DIR="${FALKORDB_DATA:-/tmp/falkordb}"
 mkdir -p "$DATA_DIR"
 
 redis-server --port 6379 --bind 127.0.0.1 --dir "$DATA_DIR" --save "" --appendonly no \
-  --loadmodule /opt/falkordb/falkordb.so --daemonize yes --logfile "$DATA_DIR/falkordb.log"
+  --loadmodule /opt/falkordb/falkordb.so --daemonize yes --logfile "$DATA_DIR/falkordb.log" \
+  --pidfile "$DATA_DIR/redis.pid"
 
 i=0
 until redis-cli -p 6379 ping >/dev/null 2>&1; do

@@ -13,7 +13,8 @@ FROM falkordb/falkordb-server:latest AS falkordb
 
 FROM python:3.11-slim-trixie
 ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PYTHONPATH=/app/backend/src HOME=/home/user
-RUN useradd -m -u 1000 user
+RUN useradd -m -u 1000 user && apt-get update && \
+    apt-get install -y --no-install-recommends libgomp1 libstdc++6 libatomic1 && rm -rf /var/lib/apt/lists/*
 COPY --from=falkordb /usr/local/bin/redis-server /usr/local/bin/redis-server
 COPY --from=falkordb /usr/local/bin/redis-cli /usr/local/bin/redis-cli
 COPY --from=falkordb /var/lib/falkordb/bin/falkordb.so /opt/falkordb/falkordb.so
