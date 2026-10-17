@@ -53,14 +53,16 @@ RETURN a.id AS account, max(senders) AS peak_senders, sum(total) AS total, count
         "name": "Rapid movement of funds (pass-through)",
         "typology": "RAPID_MOVEMENT", "severity": 0.55,
         "cypher": """
-MATCH (:Account)-[i:TRANSFER]->(a:Account)
-WHERE NOT a:External AND i.amount >= 500
-OPTIONAL MATCH (a)-[o:TRANSFER]->(:Account)
-WHERE o.ts >= i.ts AND o.ts <= i.ts + $h48 AND o.channel <> 'card'
-WITH a, i, sum(o.amount) AS out48
-WITH a, sum(i.amount) AS inflow, count(i) AS n,
-     sum(CASE WHEN out48 > i.amount THEN i.amount ELSE out48 END) AS moved
-WHERE inflow >= 5000 AND moved / inflow >= 0.8 AND (n >= 2 OR inflow >= 50000)
+MATCH (a:Account) WHERE NOT a:External
+WITH a, [(:Account)-[i:TRANSFER]->(a) WHERE i.amount >= 500 | [i.amount, i.ts]] AS ins
+WHERE size(ins) > 0
+WITH a, ins, reduce(s = 0.0, x IN ins | s + x[0]) AS inflow
+WHERE inflow >= 5000
+WITH a, ins, inflow, [(a)-[o:TRANSFER]->(:Account) WHERE o.channel <> 'card' | [o.amount, o.ts]] AS outs
+WITH a, inflow, size(ins) AS n,
+     [x IN ins | [x[0], reduce(s = 0.0, o IN outs | s + CASE WHEN o[1] >= x[1] AND o[1] <= x[1] + $h48 THEN o[0] ELSE 0.0 END)]] AS pairs
+WITH a, inflow, n, reduce(s = 0.0, p IN pairs | s + CASE WHEN p[1] > p[0] THEN p[0] ELSE p[1] END) AS moved
+WHERE moved / inflow >= 0.8 AND (n >= 2 OR inflow >= 50000)
 RETURN a.id AS account, inflow, moved, n AS inbound_count, moved / inflow AS ratio""",
         "describe": lambda r: f"{r['ratio']:.0%} of ${r['inflow']:,.0f} inbound left within 48 hours "
                               f"({r['inbound_count']} credits)",
@@ -95,7 +97,7 @@ def run_rules(tenant: str) -> dict:
     params = {"week": WEEK, "t0": T0, "h48": H48, "end": SIM_END}
     alerts = []
     for code, rule in RULES.items():
-        found, _ = db.rows(g, rule["cypher"], params)
+        found, _ = db.rows(g, rule["cypher"], params, timeout_ms=180_000)
         for r in found:
             alerts.append({
                 "id": f"ALR-{code}-{r['account'].split('-')[1]}",

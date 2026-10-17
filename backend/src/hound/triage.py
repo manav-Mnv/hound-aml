@@ -48,7 +48,7 @@ def _ident_items(g, party_ids: list[str]) -> dict[str, list[tuple[str, str]]]:
 
 def score_alerts(tenant: str) -> list[dict]:
     g = db.graph(tenant)
-    rows, ms = db.rows(g, FEATURES_CYPHER, {"recent": SIM_END - 90 * 86400})
+    rows, ms = db.rows(g, FEATURES_CYPHER, {"recent": SIM_END - 90 * 86400}, timeout_ms=180_000)
     pr_sorted = sorted(r["pagerank"] or 0 for r in rows)
     idents = _ident_items(g, list({r["party"] for r in rows}))
     scored = []

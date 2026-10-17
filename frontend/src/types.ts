@@ -9,7 +9,7 @@ export interface Subgraph { nodes: GNode[]; edges: GEdge[] }
 
 export interface Tenant { id: string; name: string }
 export interface Status {
-  falkordb: boolean; falkordb_version: number | null; graphs: string[]; llm: boolean; model: string; tenants: Tenant[];
+  falkordb: boolean; falkordb_version: number | null; graphs: string[]; llm: boolean; model: string; tenants: Tenant[]; ready: boolean;
 }
 
 export interface Alert {

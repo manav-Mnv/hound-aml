@@ -24,12 +24,20 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => { api.status().then(setStatus).catch((e) => setError(String(e))); }, []);
+  useEffect(() => {
+    let timer: number | undefined;
+    const poll = () => api.status()
+      .then((s) => { setStatus(s); setError(null); if (!s.ready) timer = window.setTimeout(poll, 3000); })
+      .catch((e) => { setError(String(e)); timer = window.setTimeout(poll, 4000); });
+    poll();
+    return () => window.clearTimeout(timer);
+  }, []);
+  const ready = !!status?.ready;
   const refresh = useCallback(() => {
     setVersion((v) => v + 1);
     api.overview(tenant).then(setOverview).catch(() => undefined);
   }, [tenant]);
-  useEffect(() => { refresh(); }, [tenant, refresh]);
+  useEffect(() => { if (ready) refresh(); }, [tenant, refresh, ready]);
 
   const reset = async () => {
     if (!confirm("Regenerate both synthetic banks and clear all Hound cases? (analyst history is restored)")) return;
@@ -75,6 +83,15 @@ export default function App() {
         </div>
       )}
       {error && <div className="banner bad">Cannot reach the Hound API: {error}</div>}
+      {!ready ? (
+        <main className="main">
+          <div className="empty">
+            <div className="empty-title pulse">Generating two synthetic banks in FalkorDB…</div>
+            <div className="empty-body">Loading accounts, transfers and ownership, running PageRank, betweenness, label propagation and WCC,
+              then the monitoring rules and triage. About a minute on a free server; this page opens by itself.</div>
+          </div>
+        </main>
+      ) : (
       <main className="main">
         {view === "investigate" && <Investigate tenant={tenant} llm={!!status?.llm} onChanged={refresh} focusAlert={focusCase} />}
         {view === "cases" && <Cases tenant={tenant} version={version} onOpen={(id) => { setFocusCase(id); setView("investigate"); }} />}
@@ -83,6 +100,7 @@ export default function App() {
         {view === "benchmark" && <Benchmark version={version} />}
         {view === "model" && <Model />}
       </main>
+      )}
     </div>
   );
 }

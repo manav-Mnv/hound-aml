@@ -1,8 +1,8 @@
 {
   "tenant": "alpha",
   "mode": "offline",
-  "seconds": 35.5,
-  "triage_ms": 255,
+  "seconds": 83.2,
+  "triage_ms": 378,
   "alerts": 71,
   "true_alerts": 30,
   "rules_only": {
@@ -10,9 +10,9 @@
     "precision": 0.423
   },
   "hound": {
-    "cases_opened": 49,
-    "investigations_run": 53,
-    "alerts_merged_into_cases": 22,
+    "cases_opened": 47,
+    "investigations_run": 51,
+    "alerts_merged_into_cases": 24,
     "sar_recommended_cases": 5,
     "false_sar_cases": [],
     "alert_precision": 1.0,
@@ -32,7 +32,7 @@
       "title": "Smurfing ring feeding a consultant's account",
       "detected": true,
       "cases": [
-        "CASE-68C76F4F"
+        "CASE-3803F8F3"
       ],
       "accounts_found": 6,
       "accounts_total": 6
@@ -41,7 +41,7 @@
       "title": "Student mule ring cashing out scam victims via crypto",
       "detected": true,
       "cases": [
-        "CASE-0B3EA28B"
+        "CASE-AE2FD78E"
       ],
       "accounts_found": 8,
       "accounts_total": 8
@@ -50,7 +50,7 @@
       "title": "Four same-director shells cycling funds",
       "detected": true,
       "cases": [
-        "CASE-63E4D58C"
+        "CASE-D5A67598"
       ],
       "accounts_found": 4,
       "accounts_total": 4
@@ -59,7 +59,7 @@
       "title": "Supplier blocked under the 50% rule via layered ownership",
       "detected": true,
       "cases": [
-        "CASE-91E9BE11"
+        "CASE-7D01DC23"
       ],
       "accounts_found": 1,
       "accounts_total": 1
@@ -68,7 +68,7 @@
       "title": "Seed 'investment' split across new accounts and parked offshore",
       "detected": true,
       "cases": [
-        "CASE-9D1875B7"
+        "CASE-C666E1D7"
       ],
       "accounts_found": 4,
       "accounts_total": 4

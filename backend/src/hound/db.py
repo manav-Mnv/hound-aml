@@ -67,7 +67,7 @@ def _props(props: dict) -> dict:
 
 
 def rows(g: Graph, cypher: str, params: dict | None = None, *, write: bool = False,
-         timeout_ms: int = 15000) -> tuple[list[dict], float]:
+         timeout_ms: int = 60000) -> tuple[list[dict], float]:
     """Run a query and return (rows as dicts, elapsed ms). Reads go through GRAPH.RO_QUERY."""
     started = time.perf_counter()
     if write:

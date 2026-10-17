@@ -1,5 +1,5 @@
 #!/bin/sh
-# Start FalkorDB, generate the synthetic banks, then serve the API + UI.
+# Start FalkorDB, serve the API + UI right away, and generate the synthetic banks in the background.
 set -e
 DATA_DIR="${FALKORDB_DATA:-/tmp/falkordb}"
 mkdir -p "$DATA_DIR"
@@ -17,5 +17,7 @@ done
 echo "FalkorDB is up"
 
 cd /app/backend
-python -m hound.cli seed
+export HOUND_READY_FILE="$DATA_DIR/ready"
+rm -f "$HOUND_READY_FILE"
+(python -m hound.cli seed && touch "$HOUND_READY_FILE" && echo "Demo data ready") &
 exec python -m uvicorn hound.api:app --host 0.0.0.0 --port "${PORT:-7860}"

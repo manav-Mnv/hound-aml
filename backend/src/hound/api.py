@@ -74,7 +74,9 @@ def status() -> dict:
         ok = True
     except Exception as exc:
         graphs, version, ok = [], None, False
-    return {"falkordb": ok, "falkordb_version": version, "graphs": graphs, "llm": settings.has_llm,
+    ready_file = os.environ.get("HOUND_READY_FILE")
+    ready = ok and (not ready_file or Path(ready_file).exists())
+    return {"falkordb": ok, "falkordb_version": version, "graphs": graphs, "llm": settings.has_llm, "ready": ready,
             "model": settings.model if settings.has_llm else "offline playbook runner",
             "tenants": [{"id": t, "name": db.TENANT_NAMES[t]} for t in settings.tenants]}
 

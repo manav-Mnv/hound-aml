@@ -14,10 +14,11 @@ jobs:
       - name: Boot, seed and investigate
         run: |
           docker run -d --name hound -p 7860:7860 hound
-          for i in $(seq 1 90); do
-            n=$(curl -s localhost:7860/api/alpha/alerts | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' 2>/dev/null || echo 0)
-            [ "$n" -gt 0 ] && break; sleep 2
+          for i in $(seq 1 120); do
+            r=$(curl -s localhost:7860/api/status | python3 -c 'import json,sys; print(json.load(sys.stdin).get("ready", False))' 2>/dev/null || echo False)
+            [ "$r" = "True" ] && break; sleep 2
           done
+          n=$(curl -s localhost:7860/api/alpha/alerts | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))')
           echo "alerts: $n"; [ "$n" -gt 50 ]
           curl -s localhost:7860/api/status
           alert=$(curl -s localhost:7860/api/alpha/alerts | python3 -c 'import json,sys; print(json.load(sys.stdin)[0]["id"])')
