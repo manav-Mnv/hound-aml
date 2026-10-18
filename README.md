@@ -8,7 +8,7 @@ Graph Hacks 2026 (WeMakeDevs × FalkorDB) · **Tracks: 01 Agents That Act on Con
 
 [![CI](https://github.com/manav-Mnv/hound-aml/actions/workflows/ci.yml/badge.svg)](https://github.com/manav-Mnv/hound-aml/actions/workflows/ci.yml) `FalkorDB 6.0 (Rust engine)` · `Claude Opus 5.5` · `MCP` · `Python / FastAPI` · `React + Cytoscape` · all data synthetic
 
-> Live demo: **[hound-99l2.onrender.com](https://hound-99l2.onrender.com)** (free tier: first load after idle takes ~1 min) · Demo video: _add link_ · Blog post: [docs/BLOG.md](docs/BLOG.md)
+> Live demo: **[hound-99l2.onrender.com](https://hound-99l2.onrender.com)** (free tier: first load after idle takes ~1 min) · Demo video: **[youtu.be/vA2FIvR-nkA](https://youtu.be/vA2FIvR-nkA)** · Blog post: **[team-musketeer.hashnode.dev](https://team-musketeer.hashnode.dev/i-work-in-aml-so-i-built-an-agent-that-follows-the-money-through-a-graph)**
 
 ---
 
