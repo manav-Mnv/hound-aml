@@ -1,39 +1,71 @@
-# Teaching an AML agent to follow the money with FalkorDB
+# I work in AML. So I built an agent that follows the money through a graph
 
-*Graph Hacks 2026 entry: Hound. Tracks 01 and 02.*
+*Published on [Hashnode](https://team-musketeer.hashnode.dev/i-work-in-aml-so-i-built-an-agent-that-follows-the-money-through-a-graph).*
 
-Anti-money-laundering teams have a strange job. Software flags millions of transactions; humans then spend most of their day proving that the software was wrong. Industry surveys put 90-95% of transaction-monitoring alerts as false positives. The rest matter a lot: in 2024 TD Bank paid about $3 billion after laundering networks moved hundreds of millions through accounts nobody was watching.
+Most of my working day in anti-money-laundering is spent proving alerts wrong. Not catching criminals. Proving that the payroll company paying 160 people is, in fact, a payroll company.
 
-What makes an alert real or not is almost never in the alert. It's in the connections: who else logs in from this phone, where the money went next, who ultimately owns this supplier, whether a colleague already cleared this customer last month. That is a graph problem, so we built Hound on one.
+So when Graph Hacks 2026 came around, I didn't want to build a chatbot. I wanted to build the thing I actually wish I had at work. My team (Team Musketeer) and I ended up with Hound.
 
-## One graph for data, memory and evidence
+**Demo video:** [youtu.be/vA2FIvR-nkA](https://youtu.be/vA2FIvR-nkA)
 
-Hound loads two synthetic banks into FalkorDB as two isolated graphs (`hound:alpha`, `hound:beta`) in a single instance, plus a third graph, `hound:consortium`, that holds nothing but keyed hashes of risky identifiers. Customers, accounts, devices, IPs, phones, addresses, companies and ownership stakes are nodes; transfers and cash deposits are relationships with amounts and timestamps.
+**Live demo:** [hound-99l2.onrender.com](https://hound-99l2.onrender.com) · **Code:** [github.com/manav-Mnv/hound-aml](https://github.com/manav-Mnv/hound-aml)
 
-The important decision was to put the agent's memory in the same graph. A case is a node linked to the parties and accounts it concerns. Every tool call becomes an `(:Evidence)` node storing the exact Cypher and parameters, linked to the entities it touched. Findings link to evidence; SARs cite evidence; analyst lessons hang off the customers they are about and off typology playbooks. "Have we seen this before?" stops being a search problem and becomes a two-hop traversal.
+## Why alerts are such a pain
 
-## Agents that use the graph to decide
+Banks run simple rules over every transaction. Too much cash, too many transfers out, money to a risky country. The rules fire all day. A NICE Actimize industry survey put it bluntly: almost 95% of alerts turn out to be false positives.
 
-Six threshold rules (written in Cypher) produce 71 alerts. A triage agent scores all of them in about 200 ms from graph features (WCC identity clusters, PageRank, new accounts, prior false-positive cases, consortium hits) and groups alerts that belong to the same ring with a union-find over shared identifiers and money links: 71 alerts become 43 candidate cases.
+Each one still gets a human. That person opens five systems, copies account numbers into a spreadsheet, checks phone numbers by hand, and sometimes finds out a colleague is working the same ring from a different alert. And the ones that aren't false positives really matter. In 2024 TD Bank paid about $3 billion after laundering networks moved hundreds of millions through it.
 
-The investigator (Claude Opus 5.5) gets 17 tools. Some are multi-hop Cypher (time-ordered money trails, loops back to the origin, linked cash depositors), some are FalkorDB algorithms (`algo.WCC`, `algo.pageRank`, `algo.betweenness`, `algo.labelPropagation`), and one lets it write its own read-only Cypher, executed through `GRAPH.RO_QUERY` so the database itself refuses writes. Its first call is always memory: the playbook for the typology and the lessons analysts attached to it.
+Here's the thing I keep coming back to. Whether an alert is real is almost never in the alert. It's in the connections. Who else logs in from this phone? Where did the money go next? Who actually owns this supplier? Did someone already clear this customer last month? Those are graph questions. So we built Hound on a graph.
 
-Three moments from the demo show why the graph matters:
+## One graph for everything
 
-- **A mule ring.** A student's account forwards 95% of what it receives within hours. WCC over devices and IPs shows eight new customers sharing two phones; the trail ends at a crypto exchange; and a hash of the recruiter's phone matches what Beta Credit Union reported in September. Alpha never sees Beta's customers, only the match.
-- **A false positive that stays closed.** A payroll processor fans out to 160 people every two weeks. The rule fires every time. Hound recalls the lesson an analyst attached to that company in August, checks that each batch was pre-funded, and closes the alert with a cited reason.
-- **A sanctions problem the rule didn't see.** A wire to a high-risk jurisdiction turns out to pay a supplier that is 30% owned by a designated person and 25% by a holding company that is itself wholly owned by another designee. 55% in aggregate: blocked under OFAC's 50% rule even though it appears on no list. That's a four-hop ownership traversal plus a fixed point, trivial in a graph and painful anywhere else.
+![Hound's alert landscape: every alerted account and what ties them together](images/alert-landscape.jpg)
 
-## Showing the work
+Hound loads two made-up banks into FalkorDB as two separate graphs, `hound:alpha` and `hound:beta`, on one instance. A third graph, `hound:consortium`, holds nothing except hashed identifiers that the banks have flagged. Customers, accounts, phones, devices, IPs, addresses, companies and ownership stakes are all nodes. Transfers and cash deposits are edges with amounts and timestamps.
 
-A SAR is only useful if an examiner can trust it. Hound's SAR writer returns structured JSON where every sentence carries evidence ids. A reviewer agent then checks each sentence: do the cited evidence nodes exist in this case, and does every dollar amount in the sentence appear in them? In our test the writer slipped in an invented $999,999 transfer; the reviewer caught it, the writer revised, and the stored SAR came out 100% grounded. In the UI every citation is clickable and opens the exact Cypher behind it.
+The decision I'm happiest with: the agents' memory lives in the same graph as the money. A case is a node connected to the people it's about. Every query an agent runs is saved as an Evidence node with the exact Cypher and parameters. Findings point to evidence. SARs point to evidence. When an analyst writes a lesson ("this company pre-funds payroll, it's fine"), that lesson hangs off the company itself. So "have we seen this before?" isn't a search any more. It's two hops.
 
-## Results on the synthetic benchmark
+## How the agents work
 
-Ground truth lives outside the graph so agents can't peek. Against 71 alerts (41 false positives, five planted schemes), the offline playbook runner closed all 41 false positives with cited reasons, escalated all five schemes with zero false SAR cases, merged 22 duplicate alerts, and found five smurf accounts no rule had flagged, in about 30 seconds for the whole queue.
+Six ordinary rules, written in Cypher, produce 71 alerts. A triage agent scores all 71 in about 200 ms using graph features: identity clusters from WCC, PageRank, account age, past false positives, consortium hits. It also groups alerts that belong to the same ring, so 71 alerts become 43 candidate cases before anyone opens one.
 
-## What we learned about FalkorDB 6
+The investigator has 17 tools. Some are multi-hop Cypher: follow money forward in time, find loops that come back to where they started, find cash deposited in one place and sent on within 48 hours. Some are FalkorDB's built-in algorithms (WCC, PageRank, betweenness, label propagation). One lets it write its own read-only Cypher, which runs through `GRAPH.RO_QUERY`, so the database itself won't let it change anything. Before it does any of that, it reads its memory: the playbook for that kind of case and whatever lessons analysts left behind.
 
-We built on the new Rust engine (6.0.1). Traversals were fast enough to run on every agent step (most tools return in 2-25 ms on ~11k nodes and ~58k relationships), the algorithm procedures were one `CALL` away, and one instance with many isolated graphs made the multi-bank story honest rather than simulated. We hit two engine edge cases (documented with repros in the repo) and worked around both.
+Three cases from the demo show why the graph matters.
 
-Hound recommends; a human decides. But the human now starts from a case that already shows its work.
+**The mule ring.** A student's account forwards 95% of what comes in within hours. WCC over devices and IPs finds eight new customers sharing two phones. The money ends up at a crypto exchange. And the recruiter's phone number, hashed, matches something Beta Credit Union reported in September. Alpha never sees Beta's customers. It only learns that there's a match. That's roughly how 314(b) information sharing is meant to work.
+
+![The mule ring: eight new customers sharing two phones, plus the consortium hit](images/mule-ring.jpg)
+
+**The false positive that stays closed.** A payroll processor pays 160 people every two weeks, and the fan-out rule fires every single time. Hound pulls up the note an analyst attached to that company back in August, checks that each batch was funded before it went out, and closes the alert with the reason written down.
+
+**The sanctions problem nobody's rule caught.** A wire to a high-risk country turns out to pay a supplier that's 30% owned by a sanctioned person, and 25% owned by a holding company that another sanctioned party owns outright. Add it up and that's 55%. Under OFAC's 50% rule the supplier is blocked, even though its name is on no list. In a graph that's a four-hop ownership walk. In a spreadsheet it's an afternoon.
+
+## Every sentence has a receipt
+
+![The Evidence tab: every SAR citation opens the exact Cypher that ran on FalkorDB](images/sar-evidence.jpg)
+
+A SAR is only useful if an examiner believes it. So Hound's SAR writer has to attach evidence IDs to every sentence it writes. Then a reviewer agent goes through the draft line by line. Do the cited evidence nodes exist in this case? Does every dollar amount in the sentence actually appear in them?
+
+We tested this by slipping a fake $999,999 transfer into a draft. The reviewer flagged it, the writer fixed it, and the saved SAR only contained numbers that came from the graph. In the app, every citation is clickable and shows you the exact Cypher behind it.
+
+## Did it work?
+
+![Benchmark: 41/41 false positives closed, 5/5 schemes caught, 0 false SARs, 5 accounts no rule flagged](images/benchmark.jpg)
+
+The data is synthetic, and the answers are kept outside the graph so the agents can't cheat. Out of 71 alerts (41 false positives and five planted schemes), Hound closed all 41 false positives with written reasons, escalated all five schemes, filed zero false SARs, merged duplicate alerts on the same rings, and found five smurf accounts that no rule had flagged at all. The whole queue takes about 30 seconds.
+
+## What we learned
+
+- **Put the memory next to the data.** Once cases, lessons and evidence sat in the same graph as the transactions, recall and audit trails came almost for free.
+- **FalkorDB is quick enough to sit inside every agent step.** Most of our tools come back in 2 to 25 ms on about 11k nodes and 58k relationships, and the graph algorithms are one CALL away.
+- **Separate graphs make the two-bank story honest.** One instance, one graph per bank, plus a hashed consortium graph is close to how this would really have to work.
+- **Explainability has to be enforced.** Making the writer cite evidence, and having something check the numbers, is what makes the SAR worth trusting.
+- **Pin your versions.** We built on FalkorDB 6.0, the new Rust engine, hit two edge cases (we wrote them up with repros), and learned to pin the Docker tag the hard way.
+
+Hound doesn't make the call. A person does. But that person now starts from a case that already shows its work, instead of five browser tabs and a spreadsheet.
+
+**Try it:** [hound-99l2.onrender.com](https://hound-99l2.onrender.com) · **Code:** [github.com/manav-Mnv/hound-aml](https://github.com/manav-Mnv/hound-aml)
+
+*Built by Team Musketeer for Graph Hacks 2026, hosted by WeMakeDevs and FalkorDB.*

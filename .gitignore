@@ -8,3 +8,6 @@ frontend/dist/
 *.aof
 .DS_Store
 backend/data/runs/
+video/
+.claude/
+*.tsbuildinfo

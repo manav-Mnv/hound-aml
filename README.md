@@ -50,6 +50,12 @@ Reproduce with `uv run hound eval --mode offline`. Ground truth is kept in `back
 
 Investigate (live graph grows as the agent calls tools, trace with Cypher, SAR with clickable citations, human approval) · Cases · Memory graph + playbooks · Consortium · Benchmark · Graph model & rule Cypher.
 
+| Alert landscape | Mule ring with consortium hit |
+|---|---|
+| ![Alert landscape](docs/images/alert-landscape.jpg) | ![Mule ring](docs/images/mule-ring.jpg) |
+| **SAR citation → exact Cypher** | **Benchmark** |
+| ![SAR evidence](docs/images/sar-evidence.jpg) | ![Benchmark](docs/images/benchmark.jpg) |
+
 ## Architecture
 
 ```mermaid
@@ -240,8 +246,7 @@ Remote (deployed app): streamable HTTP at `https://<your-app>/mcp-server/mcp`. T
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/manav-Mnv/hound-aml)
 
-- **Render (free):** click the button (or New → Blueprint → this repo). It uses `render.yaml` and the root `Dockerfile`; set `ANTHROPIC_API_KEY` if you want live Claude runs. Free instances sleep when idle, so the first request after a while takes about a minute.
-- **Hugging Face Space (needs HF PRO for Docker Spaces):** add repository secrets `HF_TOKEN` (write) and optionally `ANTHROPIC_API_KEY`, then run the `Deploy to Hugging Face Space` workflow manually.
+Render (free): click the button (or New → Blueprint → this repo). It uses `render.yaml` and the root `Dockerfile`; set `ANTHROPIC_API_KEY` if you want live Claude runs. Free instances sleep when idle, so the first request after a while takes about a minute.
 
 The container starts FalkorDB, generates both banks (~10 s), and serves the app on `$PORT` (7860 default). Live Claude runs are capped per hour (`HOUND_LIVE_RUNS_PER_HOUR`).
 
@@ -262,6 +267,10 @@ An AI coding assistant was used during development, as allowed by rule 11. The i
 ## Limitations
 
 Synthetic data and a small rule set; the consortium uses keyed hashing, which a production deployment would replace with private set intersection; the grounding reviewer checks citations and amounts, not every qualitative claim; Hound recommends, a human decides.
+
+## Team Musketeer
+
+Manav Sinh (lead) · Hemanta Manna · Arya Pathak · Navya Chacheriya
 
 ## License
 
