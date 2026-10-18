@@ -246,7 +246,7 @@ Remote (deployed app): streamable HTTP at `https://<your-app>/mcp-server/mcp`. T
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/manav-Mnv/hound-aml)
 
-Render (free): click the button (or New → Blueprint → this repo). It uses `render.yaml` and the root `Dockerfile`; set `ANTHROPIC_API_KEY` if you want live Claude runs. Free instances sleep when idle, so the first request after a while takes about a minute.
+Render (free): click the button (or New → Blueprint → this repo). It uses `render.yaml` and the root `Dockerfile`; set `ANTHROPIC_API_KEY` if you want live Claude runs. Free instances sleep after 15 idle minutes, so on Render the app pings its own `/api/status` every 10 minutes to stay awake (`HOUND_KEEPALIVE_SECONDS`, 0 turns it off); the `server-hell` workflow is a backup that wakes it if it ever restarts.
 
 The container starts FalkorDB, generates both banks (~10 s), and serves the app on `$PORT` (7860 default). Live Claude runs are capped per hour (`HOUND_LIVE_RUNS_PER_HOUR`).
 

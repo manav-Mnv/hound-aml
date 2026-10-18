@@ -27,10 +27,29 @@ from .mcp_server import server as mcp_server
 _mcp_app = mcp_server.streamable_http_app()
 
 
+async def _keep_awake(url: str, every: int) -> None:
+    """Ping our own public URL so Render's free tier never sees 15 idle minutes and sleeps."""
+    import urllib.request
+
+    while True:
+        await asyncio.sleep(every)
+        try:
+            await asyncio.to_thread(lambda: urllib.request.urlopen(url, timeout=30).read())
+        except Exception as exc:
+            print(f"keep-awake ping failed: {exc}", flush=True)
+
+
 @asynccontextmanager
 async def lifespan(_app):
-    async with mcp_server.session_manager.run():
-        yield
+    base = os.environ.get("HOUND_KEEPALIVE_URL") or os.environ.get("RENDER_EXTERNAL_URL")
+    every = int(os.environ.get("HOUND_KEEPALIVE_SECONDS", "600"))
+    pinger = asyncio.create_task(_keep_awake(base.rstrip("/") + "/api/status", every)) if base and every > 0 else None
+    try:
+        async with mcp_server.session_manager.run():
+            yield
+    finally:
+        if pinger:
+            pinger.cancel()
 
 
 app = FastAPI(title="Hound", description="AML investigation agents on FalkorDB", lifespan=lifespan)
